@@ -41,7 +41,7 @@ class LLMManager:
                 
                 # Wait for response with a longer timeout and ensure we don't return too early
                 try:
-                    await asyncio.wait_for(done.wait(), timeout=30)
+                    await asyncio.wait_for(done.wait(), timeout=60)
                 except asyncio.TimeoutError:
                     console.print("[error]LLM request timed out.[/error]")
                 
@@ -82,6 +82,20 @@ class LLMManager:
             "Keep the explanation concise (approximately 150 words), high-impact, and clear. "
             "Use Markdown for formatting (bold, code blocks, lists). "
             "Do not use conversational filler like 'Sure!' or 'Here is your lesson'."
+        )
+        
+        prompt = f"Main Topic: {topic}\nSub-Topic: {sub_topic}"
+        
+        return await self.get_response(prompt, system_prompt)
+
+    async def generate_quiz(self, topic: str, sub_topic: str) -> str:
+        """Generates a micro-quiz for a specific sub-topic."""
+        system_prompt = (
+            "You are a master educator. Create a challenging micro-quiz for the provided sub-topic within the broader main topic. "
+            "The quiz should test understanding, not just recall. "
+            "Format: 1 Question followed by 3-4 multiple choice options. "
+            "At the very end, include the correct answer prefixed with 'ANSWER: '. "
+            "Do not use conversational filler."
         )
         
         prompt = f"Main Topic: {topic}\nSub-Topic: {sub_topic}"

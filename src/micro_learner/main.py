@@ -1,8 +1,10 @@
 import click
 import asyncio
+import random
+import time
 from rich.markdown import Markdown
 from micro_learner.state import bootstrap, load_state, save_state, initialize_topic
-from micro_learner.ui import console
+from micro_learner.ui import console, render_lesson, render_progress, render_answer
 from micro_learner.llm import LLMManager
 
 def coro(f):
@@ -18,6 +20,17 @@ def cli():
     """Micro-Learner CLI: Turn idle time into learning."""
     bootstrap()
 
+def get_random_status():
+    """Returns a random encouraging status message."""
+    messages = [
+        "Synthesizing concepts...",
+        "Drafting your micro-lesson...",
+        "Consulting the expert curriculum...",
+        "Optimizing cognitive load...",
+        "Preparing your bite-sized insight...",
+    ]
+    return f"[info]{random.choice(messages)}[/info]"
+
 @cli.command()
 def status():
     """Check the current learning status."""
@@ -28,9 +41,8 @@ def status():
     if not state.active_topic:
         console.print("[info]No active topic. Use 'micro-learner start <topic>' to begin.[/info]")
     else:
-        progress = (state.current_lesson_index / state.total_lessons) * 100 if state.total_lessons > 0 else 0
-        console.print(f"[info]Current Topic:[/info] [topic]{state.active_topic}[/topic]")
-        console.print(f"[info]Progress:[/info] {state.current_lesson_index}/{state.total_lessons} ({progress:.1f}%)")
+        console.print(render_progress(state.current_lesson_index, state.total_lessons, state.active_topic))
+        console.print()
         
         if state.syllabus and state.current_lesson_index < state.total_lessons:
             next_lesson = state.syllabus[state.current_lesson_index]
@@ -45,7 +57,7 @@ async def start(topic):
     """Start a new learning topic by generating a syllabus."""
     llm = LLMManager()
     
-    with console.status(f"[info]Generating syllabus for '{topic}'...[/info]"):
+    with console.status(f"[info]Architecting syllabus for '{topic}'...[/info]"):
         syllabus = await llm.generate_syllabus(topic)
     
     if syllabus:
@@ -77,23 +89,53 @@ async def next():
 
     sub_topic = state.syllabus[state.current_lesson_index]
     llm = LLMManager()
+    
+    # 30% chance for a quiz
+    is_quiz = random.random() < 0.3
+    progress_str = f"Step {state.current_lesson_index + 1} of {state.total_lessons}"
 
-    console.rule(f"[header]Lesson {state.current_lesson_index + 1}: {sub_topic}[/header]")
-    
-    with console.status(f"[info]Teaching {sub_topic}...[/info]"):
-        lesson_text = await llm.generate_lesson(state.active_topic, sub_topic)
-    
-    if lesson_text:
-        console.print(Markdown(lesson_text))
-        console.print("\n" + "─" * console.width)
-        click.pause(info="Press any key to complete this lesson...")
+    if is_quiz:
+        with console.status(get_random_status()):
+            content = await llm.generate_quiz(state.active_topic, sub_topic)
         
-        state.current_lesson_index += 1
-        save_state(state)
+        if content:
+            if "ANSWER:" in content:
+                question_part, answer_part = content.split("ANSWER:", 1)
+            else:
+                question_part, answer_part = content, "No answer key provided."
+
+            console.print(render_lesson(f"Quiz: {sub_topic}", question_part.strip(), subtitle=progress_str))
+            console.print("\n" + "─" * console.width)
+            
+            click.pause(info="Think about your answer, then press any key to reveal...")
+            
+            # Subtle delay for effect
+            with console.status("[success]Revealing answer...[/success]"):
+                time.sleep(1)
+            
+            console.print(render_answer(answer_part.strip()))
+            console.print("\n" + "─" * console.width)
+            click.pause(info="Press any key to complete this lesson...")
+        else:
+            is_quiz = False
+
+    if not is_quiz:
+        with console.status(get_random_status()):
+            lesson_text = await llm.generate_lesson(state.active_topic, sub_topic)
         
-        console.print(f"[success]Lesson complete![/success] Progress: {state.current_lesson_index}/{state.total_lessons}")
-    else:
-        console.print("[error]Failed to fetch the lesson. Please check your connection and try again.[/error]")
+        if lesson_text:
+            console.print(render_lesson(sub_topic, lesson_text, subtitle=progress_str))
+            console.print("\n" + "─" * console.width)
+            click.pause(info="Press any key to complete this lesson...")
+        else:
+            console.print("[error]Failed to fetch the lesson. Please check your connection and try again.[/error]")
+            return
+
+    # Common progress update logic
+    state.current_lesson_index += 1
+    save_state(state)
+    console.print(f"[success]Lesson complete![/success]")
+    console.print(render_progress(state.current_lesson_index, state.total_lessons, state.active_topic))
 
 def main():
     cli()
