@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cli-micro-learner"
+version = "0.1.0"
+description = "A terminal-based CLI application for micro-learning."
+authors = [
+    { name = "Rafael", email = "rafael@example.com" }
+]
+dependencies = [
+    "rich>=13.0.0",
+    "github-copilot-sdk>=0.1.0",
+    "pydantic>=2.0.0",
+    "click>=8.0.0",
+]
+requires-python = ">=3.10"
+
+[project.scripts]
+micro-learner = "micro_learner.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
