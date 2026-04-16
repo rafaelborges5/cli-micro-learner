@@ -2,6 +2,7 @@ import time
 from rich.console import Console, Group
 from rich.theme import Theme
 from rich.panel import Panel
+from rich.table import Table
 from rich.markdown import Markdown
 from rich.progress_bar import ProgressBar
 from rich.text import Text
@@ -70,3 +71,31 @@ def render_progress(current: int, total: int, topic_name: str) -> Group:
     )
     
     return Group(pb, status_text)
+
+
+def render_syllabus_browser(records, active_syllabus_id: str | None) -> Table:
+    """Renders a numbered syllabus browser for resume selection."""
+    table = Table(title="[header]Resume A Syllabus[/header]", expand=True)
+    table.add_column("#", style="info", no_wrap=True)
+    table.add_column("Topic", style="topic")
+    table.add_column("Progress", style="success", no_wrap=True)
+    table.add_column("Complete", style="info", no_wrap=True)
+    table.add_column("Status", style="warning", no_wrap=True)
+
+    for index, record in enumerate(records, start=1):
+        completion = f"{(record.current_lesson_index / record.total_lessons * 100) if record.total_lessons else 0:.0f}%"
+        status = []
+        if record.id == active_syllabus_id:
+            status.append("Active")
+        if record.current_lesson_index >= record.total_lessons and record.total_lessons > 0:
+            status.append("Completed")
+        table.add_row(
+            str(index),
+            record.topic,
+            f"{record.current_lesson_index}/{record.total_lessons}",
+            completion,
+            ", ".join(status) if status else "Available",
+        )
+
+    table.add_row(str(len(records) + 1), "Start a new topic", "-", "-", "Action")
+    return table
