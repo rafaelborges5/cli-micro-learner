@@ -1,0 +1,2 @@
+[console_scripts]
+micro-learner = micro_learner.main:main
