@@ -1,9 +1,11 @@
 import asyncio
 import json
+import random
 import re
 from typing import List, Optional
 from copilot import CopilotClient
 from copilot.session import PermissionHandler
+from micro_learner.state import LessonArtifact
 from micro_learner.ui import console
 
 class LLMManager:
@@ -101,3 +103,46 @@ class LLMManager:
         prompt = f"Main Topic: {topic}\nSub-Topic: {sub_topic}"
         
         return await self.get_response(prompt, system_prompt)
+
+    async def generate_cached_lessons(self, topic: str, syllabus: List[str]) -> List[LessonArtifact]:
+        """Pre-generates all lesson artifacts for a syllabus."""
+        artifacts: List[LessonArtifact] = []
+
+        for step_number, sub_topic in enumerate(syllabus, start=1):
+            lesson_type = "quiz" if random.random() < 0.3 else "lesson"
+
+            if lesson_type == "quiz":
+                raw_quiz = await self.generate_quiz(topic, sub_topic)
+                if not raw_quiz:
+                    raise ValueError(f"Failed to generate cached quiz for step {step_number}.")
+
+                if "ANSWER:" in raw_quiz:
+                    question_part, answer_part = raw_quiz.rsplit("ANSWER:", 1)
+                else:
+                    question_part, answer_part = raw_quiz, "No answer key provided."
+
+                artifacts.append(
+                    LessonArtifact(
+                        step_number=step_number,
+                        sub_topic=sub_topic,
+                        lesson_type="quiz",
+                        content=question_part.strip(),
+                        answer=answer_part.strip(),
+                    )
+                )
+                continue
+
+            lesson_text = await self.generate_lesson(topic, sub_topic)
+            if not lesson_text:
+                raise ValueError(f"Failed to generate cached lesson for step {step_number}.")
+
+            artifacts.append(
+                LessonArtifact(
+                    step_number=step_number,
+                    sub_topic=sub_topic,
+                    lesson_type="lesson",
+                    content=lesson_text.strip(),
+                )
+            )
+
+        return artifacts
