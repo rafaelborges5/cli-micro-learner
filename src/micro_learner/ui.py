@@ -4,6 +4,7 @@ from rich.theme import Theme
 from rich.panel import Panel
 from rich.table import Table
 from rich.markdown import Markdown
+from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.progress_bar import ProgressBar
 from rich.text import Text
 from rich.align import Align
@@ -99,3 +100,16 @@ def render_syllabus_browser(records, active_syllabus_id: str | None) -> Table:
 
     table.add_row(str(len(records) + 1), "Start a new topic", "-", "-", "Action")
     return table
+
+
+def build_generation_progress() -> Progress:
+    """Creates a progress display for long-running cache generation."""
+    return Progress(
+        TextColumn("[info]{task.fields[label]}[/info]"),
+        BarColumn(bar_width=32),
+        TaskProgressColumn(),
+        TextColumn("[topic]{task.fields[sub_topic]}[/topic]"),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    )

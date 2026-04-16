@@ -27,25 +27,29 @@ class CliPersistenceTests(unittest.TestCase):
         self.temp_dir.cleanup()
 
     def test_start_creates_new_active_syllabus_without_overwriting_existing_records(self):
+        def generate_cached_lessons(topic, syllabus, progress_callback=None):
+            self.assertIsNotNone(progress_callback)
+            progress_callback(0, 2, "Step 1", "lesson")
+            progress_callback(1, 2, "Step 1", "lesson")
+            progress_callback(1, 2, "Step 2", "lesson")
+            progress_callback(2, 2, "Step 2", "lesson")
+            return [
+                state.LessonArtifact(
+                    step_number=1,
+                    sub_topic="Step 1",
+                    lesson_type="lesson",
+                    content="Lesson 1",
+                ),
+                state.LessonArtifact(
+                    step_number=2,
+                    sub_topic="Step 2",
+                    lesson_type="lesson",
+                    content="Lesson 2",
+                ),
+            ]
+
         with patch.object(main.LLMManager, "generate_syllabus", return_value=["Step 1", "Step 2"]), \
-             patch.object(
-                 main.LLMManager,
-                 "generate_cached_lessons",
-                 return_value=[
-                     state.LessonArtifact(
-                         step_number=1,
-                         sub_topic="Step 1",
-                         lesson_type="lesson",
-                         content="Lesson 1",
-                     ),
-                     state.LessonArtifact(
-                         step_number=2,
-                         sub_topic="Step 2",
-                         lesson_type="lesson",
-                         content="Lesson 2",
-                     ),
-                 ],
-             ):
+             patch.object(main.LLMManager, "generate_cached_lessons", side_effect=generate_cached_lessons):
             first = self.runner.invoke(main.cli, ["start", "Topic One"])
             second = self.runner.invoke(main.cli, ["start", "Topic Two"])
 
@@ -59,6 +63,7 @@ class CliPersistenceTests(unittest.TestCase):
         self.assertEqual(len(records), 2)
         self.assertEqual(state.load_active_syllabus().topic, "Topic Two")
         self.assertEqual(state.load_active_syllabus().cache_status, "complete")
+        self.assertIn("Generating lesson", first.output)
 
     def test_next_exports_explanation_and_advances_progress(self):
         record = state.initialize_cached_topic(

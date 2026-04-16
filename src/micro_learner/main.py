@@ -21,6 +21,7 @@ from micro_learner.state import (
     save_syllabus_record,
 )
 from micro_learner.ui import (
+    build_generation_progress,
     console,
     render_answer,
     render_lesson,
@@ -177,8 +178,29 @@ async def start(topic):
     if syllabus:
         record = create_syllabus_record(topic, syllabus)
         try:
-            with console.status(f"[info]Pre-generating cached lessons for '{topic}'...[/info]"):
-                lesson_artifacts = await llm.generate_cached_lessons(topic, syllabus)
+            with build_generation_progress() as progress:
+                task_id = progress.add_task(
+                    "cache-generation",
+                    total=len(syllabus),
+                    completed=0,
+                    label="Generating cached lessons",
+                    sub_topic="-",
+                )
+
+                def on_generation_progress(completed_steps: int, total_steps: int, sub_topic: str, lesson_type: str):
+                    progress.update(
+                        task_id,
+                        total=total_steps,
+                        completed=completed_steps,
+                        label=f"Generating {lesson_type}",
+                        sub_topic=f"{completed_steps + (0 if completed_steps == total_steps else 1)}/{total_steps}: {sub_topic}",
+                    )
+
+                lesson_artifacts = await llm.generate_cached_lessons(
+                    topic,
+                    syllabus,
+                    progress_callback=on_generation_progress,
+                )
 
             if len(lesson_artifacts) != len(syllabus):
                 raise ValueError("Cached lesson generation returned an incomplete artifact set.")

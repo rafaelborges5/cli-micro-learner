@@ -60,9 +60,9 @@ Goal: Make it beautiful and engaging.
 
 [ ] The Progress Bar: Implement the Rich progress bar at the bottom of the screen: [████░░░] 40% | Topic: Advanced Rust | Lesson 4/10.
 
-Phase 3: Knowledge Retention (Auto-Export)
+Phase 3: Knowledge Retention & Multi-Topic Management
 
-Goal: Save what you learn for future reference.
+Goal: Save what you learn and manage multiple syllabi over time.
 
 [ ] Export Directory: Create a ~/.micro_learner/notes/ directory.
 
@@ -70,15 +70,43 @@ Goal: Save what you learn for future reference.
 
 [ ] Formatting the Vault: Ensure the exported markdown includes timestamps and clean headers so it can be directly imported into tools like Obsidian or Notion.
 
-Phase 4: Advanced Interactions (The "Could-Haves")
+[ ] Multi-Topic State: Persist each syllabus as its own JSON file under ~/.micro_learner/syllabi/ (keyed by topic name + timestamp) so starting a new topic no longer overwrites the previous one.
 
-Goal: Add interactive safety valves and gamification.
+[ ] Batch Lesson Pre-generation: Immediately after the syllabus is created, generate and cache all 15 lessons to disk in one go. `next` then just reads from the cache — instant, no LLM call. This also eliminates the 10-20s per-command latency caused by cold-starting a new LLM session each time.
+
+[ ] Syllabus Browser (Resume): On launch, if prior syllabi exist, show an interactive menu (using Rich's prompt or a simple numbered list) that mirrors the feel of `gemini --resume` — each entry shows the topic name, lesson progress (e.g. "7 / 15"), and completion percentage. The user can pick one to resume or choose to start something new.
+
+Phase 4: Advanced Interactions
+
+Goal: Add interactive safety valves mid-lesson.
 
 [ ] The "I'm Stuck" Keys: Implement a keyboard listener (like the keyboard or pynput library, or standard tty manipulation).
 
 Press E: Triggers a new LLM call to rewrite the current lesson using a simpler analogy.
 
 Press D: Triggers a new LLM call to provide a concrete code snippet for the current concept.
+
+Phase 5: Integrated REPL Shell
+
+Goal: Replace the separate CLI commands with a single, persistent interactive session — a modern "AI CLI" feel where the user never leaves the tool.
+
+
+[ ] Interactive Loop: Replace the Click command dispatch with a prompt-driven REPL loop (e.g. using prompt_toolkit or a simple input() loop styled with Rich). The user launches `micro-learner` once and stays inside the session.
+
+[ ] Slash Commands: Implement in-session commands that mirror the current CLI verbs:
+    /start <topic>  — generate and load a new syllabus
+    /next           — fetch the next lesson or quiz
+    /status         — show current progress inline
+    /resume         — open the syllabus browser (from Phase 3) without exiting
+    /quit           — cleanly exit the session
+
+[ ] Persistent Context Bar: Render a persistent header or footer (using Rich Live or a static top panel) that always shows the active topic and lesson progress — no need to run /status to know where you are.
+
+[ ] Graceful Fallback: Keep the original Click commands working as a thin wrapper so the tool is still scriptable and pipe-friendly even after the REPL is the primary UX.
+
+Phase 6: Gamification (On The Fence)
+
+Goal: Add challenge checkpoints for retention — not yet committed to this direction.
 
 [ ] "Boss Fight" Checkpoints: Add logic to the State Manager. If current_lesson % 5 == 0, prompt the LLM to generate a practical challenge incorporating the last 4 lessons instead of a standard teaching.
 
