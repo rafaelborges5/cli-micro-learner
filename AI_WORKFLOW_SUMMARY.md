@@ -41,14 +41,21 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [x] **Enhanced Note Export:** Dynamically generated interventions are now persisted in the Markdown notes.
 - [x] **End-to-End Verification:** Comprehensive test suite implemented and verified (23/23 tests passing).
 
-### Phase 5: Integrated REPL Shell (IN PROGRESS)
-- [ ] **Interactive Loop:** Replace the Click command dispatch with a prompt-driven REPL loop.
+### Phase 5: Integrated REPL Shell (COMPLETED)
+- [x] **Interactive Loop:** Persistent `prompt_toolkit` session with history and tab auto-completion.
+- [x] **Slash Commands:** Integrated `/start`, `/next`, `/status`, `/resume`, `/help`, and `/quit`.
+- [x] **Persistent Context Bar:** Bottom toolbar showing live progress and topic info with `rich` styling.
+- [x] **Progressive Cache Warmup:** First lesson is generated instantly; remaining 14 are cached in an `asyncio` background task.
+- [x] **Unified Architecture:** Core logic decoupled into `logic.py`, shared between Click CLI and REPL.
+- [x] **Verified Stability:** All 23 tests passing with new architecture.
 
 ## 📂 Key Architecture
-- `src/micro_learner/main.py`: CLI Entry point (using `click`).
-- `src/micro_learner/state.py`: Persistence, syllabus records, lesson cache storage, and structured note export.
-- `src/micro_learner/llm.py`: Copilot SDK wrapper plus batch lesson artifact generation.
-- `src/micro_learner/ui.py`: Centralized `rich` rendering helpers, including the syllabus browser.
+- `src/micro_learner/main.py`: CLI entry point; launches REPL by default.
+- `src/micro_learner/repl.py`: Interactive shell loop, history, and auto-completion.
+- `src/micro_learner/logic.py`: Core application logic (the "brain" of the app).
+- `src/micro_learner/state.py`: Persistence, syllabus records, and note export.
+- `src/micro_learner/llm.py`: Copilot SDK wrapper and cache generation.
+- `src/micro_learner/ui.py`: Centralized `rich` rendering and ANSI toolbar bridge.
 
 ## ⚠️ Important Context for Future Agents
 - **SDK Import:** The GitHub Copilot SDK is imported as `from copilot import CopilotClient`.

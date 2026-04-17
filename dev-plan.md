@@ -91,20 +91,20 @@ Phase 5: Integrated REPL Shell
 Goal: Replace the separate CLI commands with a single, persistent interactive session — a modern "AI CLI" feel where the user never leaves the tool.
 
 
-[ ] Interactive Loop: Replace the Click command dispatch with a prompt-driven REPL loop (e.g. using prompt_toolkit or a simple input() loop styled with Rich). The user launches `micro-learner` once and stays inside the session.
+[x] Interactive Loop: Replace the Click command dispatch with a prompt-driven REPL loop (e.g. using prompt_toolkit or a simple input() loop styled with Rich). The user launches `micro-learner` once and stays inside the session.
 
-[ ] Slash Commands: Implement in-session commands that mirror the current CLI verbs:
+[x] Slash Commands: Implement in-session commands that mirror the current CLI verbs:
     /start <topic>  — generate and load a new syllabus
     /next           — fetch the next lesson or quiz
-    /status         — show current progress inline
+    /status         - show current progress inline
     /resume         — open the syllabus browser (from Phase 3) without exiting
     /quit           — cleanly exit the session
 
-[ ] Persistent Context Bar: Render a persistent header or footer (using Rich Live or a static top panel) that always shows the active topic and lesson progress — no need to run /status to know where you are.
+[x] Persistent Context Bar: Render a persistent header or footer (using Rich Live or a static top panel) that always shows the active topic and lesson progress — no need to run /status to know where you are.
 
-[ ] Progressive Cache Warmup: Generate and display the first lesson or quiz immediately, then continue generating the remaining cached lessons in the background so the user can begin learning without waiting for the full cache build to finish.
+[x] Progressive Cache Warmup: Generate and display the first lesson or quiz immediately, then continue generating the remaining cached lessons in the background so the user can begin learning without waiting for the full cache build to finish.
 
-[ ] Graceful Fallback: Keep the original Click commands working as a thin wrapper so the tool is still scriptable and pipe-friendly even after the REPL is the primary UX.
+[x] Graceful Fallback: Keep the original Click commands working as a thin wrapper so the tool is still scriptable and pipe-friendly even after the REPL is the primary UX.
 
 Phase 6: Gamification (On The Fence)
 
