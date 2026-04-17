@@ -134,8 +134,9 @@ class LLMManager:
         topic: str,
         syllabus: List[str],
         progress_callback: Optional[Callable[[int, int, str, str], None]] = None,
+        start_step: int = 1,
     ) -> List[LessonArtifact]:
-        """Pre-generates all lesson artifacts for a syllabus."""
+        """Pre-generates lesson artifacts for a syllabus subset."""
         artifacts: List[LessonArtifact] = []
         total_steps = len(syllabus)
 
@@ -145,10 +146,11 @@ class LLMManager:
                 on_permission_request=PermissionHandler.approve_all
             ) as session:
                 session.on(self._on_session_event)
-                for step_number, sub_topic in enumerate(syllabus, start=1):
+                for i, sub_topic in enumerate(syllabus):
+                    step_number = start_step + i
                     lesson_type = "quiz" if random.random() < 0.3 else "lesson"
                     if progress_callback:
-                        progress_callback(step_number - 1, total_steps, sub_topic, lesson_type)
+                        progress_callback(i, total_steps, sub_topic, lesson_type)
 
                     if lesson_type == "quiz":
                         raw_quiz = await self._send_with_session(
@@ -203,6 +205,6 @@ class LLMManager:
                         )
 
                     if progress_callback:
-                        progress_callback(step_number, total_steps, sub_topic, lesson_type)
+                        progress_callback(i + 1, total_steps, sub_topic, lesson_type)
 
         return artifacts

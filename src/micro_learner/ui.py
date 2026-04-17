@@ -1,4 +1,5 @@
 import time
+from io import StringIO
 from rich.console import Console, Group
 from rich.theme import Theme
 from rich.panel import Panel
@@ -124,3 +125,39 @@ def build_generation_progress() -> Progress:
         TimeRemainingColumn(),
         console=console,
     )
+
+def render_to_ansi(renderable) -> str:
+    """Renders a Rich renderable to a string containing ANSI codes."""
+    with StringIO() as buf:
+        ansi_console = Console(file=buf, force_terminal=True, theme=micro_theme, width=console.width)
+        ansi_console.print(renderable, end="")
+        return buf.getvalue()
+
+def render_toolbar(current: int, total: int, topic_name: str) -> str:
+    """Renders a single-line version of the progress bar for the REPL toolbar."""
+    percentage = (current / total) * 100 if total > 0 else 0
+    
+    pb = ProgressBar(
+        total=total,
+        completed=current,
+        width=20,
+        style="info",
+        complete_style="success",
+        finished_style="success"
+    )
+    
+    content = Text.assemble(
+        (" [", "info"),
+        (f"{current}/{total}", "success"),
+        ("] ", "info"),
+        (f"{topic_name} ", "topic"),
+        (" ", "info"),
+    )
+    
+    toolbar_text = Text.assemble(
+        (f" {percentage:>3.0f}% ", "success"),
+        pb,
+        content
+    )
+    
+    return render_to_ansi(toolbar_text)
