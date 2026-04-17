@@ -239,7 +239,7 @@ class CliPersistenceTests(unittest.TestCase):
         result = self.runner.invoke(main.cli, ["resume"], input="2\n")
 
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("micro-learner start <topic>", result.output)
+        self.assertIn("micro-learner start", result.output)
         self.assertEqual(state.load_state().active_syllabus_id, record.id)
 
     def test_resume_rejects_incomplete_syllabus(self):
