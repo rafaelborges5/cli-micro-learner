@@ -107,6 +107,28 @@ class LLMManager:
         
         return await self.get_response(prompt, system_prompt)
 
+    async def generate_analogy(self, topic: str, subtopic: str, lesson_content: str) -> str:
+        """Generates a simple analogy for the given lesson content."""
+        system_prompt = (
+            "You are a master educator. The user is stuck on a concept. "
+            "Explain the provided sub-topic using a simpler, everyday analogy. "
+            "Keep the explanation concise (approximately 100 words), high-impact, and clear. "
+            "Use Markdown for formatting."
+        )
+        prompt = f"Main Topic: {topic}\nSub-Topic: {subtopic}\nOriginal Lesson:\n{lesson_content}"
+        return await self.get_response(prompt, system_prompt)
+
+    async def generate_code_example(self, topic: str, subtopic: str, lesson_content: str) -> str:
+        """Generates a concrete code example for the given lesson content."""
+        system_prompt = (
+            "You are a master educator. The user is stuck on a concept. "
+            "Provide a concrete, minimal code snippet demonstrating the provided sub-topic. "
+            "Keep the explanation very brief and focus on the code. "
+            "Use Markdown for formatting, including appropriate language tags for code blocks."
+        )
+        prompt = f"Main Topic: {topic}\nSub-Topic: {subtopic}\nOriginal Lesson:\n{lesson_content}"
+        return await self.get_response(prompt, system_prompt)
+
     async def generate_cached_lessons(
         self,
         topic: str,

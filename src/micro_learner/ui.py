@@ -48,6 +48,17 @@ def render_answer(answer_text: str) -> Panel:
         expand=True
     )
 
+def render_intervention(title: str, content: str, style: str) -> Panel:
+    """Wraps an intervention (analogy or code) in a stylized Rich Panel."""
+    md = Markdown(content)
+    return Panel(
+        md,
+        title=f"[{style}]{title}[/{style}]",
+        border_style=style,
+        padding=(1, 2),
+        expand=True
+    )
+
 def render_progress(current: int, total: int, topic_name: str) -> Group:
     """Creates a stylized progress bar and status text."""
     percentage = (current / total) * 100 if total > 0 else 0
