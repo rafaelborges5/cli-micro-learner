@@ -155,16 +155,40 @@ async def execute_resume():
     render_active_syllabus_summary()
 
 
-async def execute_start(topic: str):
-    """Logic for the start command."""
+async def execute_start(topic: str, background: bool = False) -> tuple[list[str], str] | None:
+    """Logic for the start command. 
+    If background=True, generates only the first lesson and returns the remainder.
+    """
     llm = LLMManager()
     
     with console.status(f"[info]Architecting syllabus for '{topic}'...[/info]"):
         syllabus = await llm.generate_syllabus(topic)
     
-    if syllabus:
-        record = create_syllabus_record(topic, syllabus)
-        try:
+    if not syllabus:
+        console.print("[error]Failed to generate syllabus. Please try again.[/error]")
+        return None
+
+    record = create_syllabus_record(topic, syllabus)
+    
+    try:
+        if background:
+            # Immediate setup: only first lesson
+            with console.status("[info]Preparing your first lesson...[/info]"):
+                first_lesson_artifacts = await llm.generate_cached_lessons(
+                    topic, syllabus[:1], start_step=1
+                )
+            if not first_lesson_artifacts:
+                raise ValueError("Failed to generate the first lesson.")
+            
+            save_lesson_artifacts(record.id, first_lesson_artifacts)
+            activate_syllabus(record.id)
+            
+            console.print(f"[success]Topic initialized:[/success] [topic]{topic}[/topic]")
+            console.print(f"[info]Step 1: {syllabus[0]}[/info]")
+            console.print("[info]Rest of the lessons are caching in the background...[/info]")
+            return (syllabus[1:], record.id)
+        else:
+            # Blocking setup: all lessons
             with build_generation_progress() as progress:
                 task_id = progress.add_task(
                     "cache-generation",
@@ -195,20 +219,20 @@ async def execute_start(topic: str):
             save_lesson_artifacts(record.id, lesson_artifacts)
             mark_syllabus_cache_complete(record)
             activate_syllabus(record.id)
-        except (OSError, ValueError) as exc:
-            delete_syllabus_record(record.id)
-            console.print(f"[error]Failed to initialize cached lessons: {exc}[/error]")
-            return
+            
+            console.print(f"[success]Successfully initialized topic:[/success] [topic]{topic}[/topic]")
+            console.print("[info]Syllabus Overview:[/info]")
+            for i, step in enumerate(syllabus[:5], 1):
+                console.print(f"  {i}. {step}")
+            if len(syllabus) > 5:
+                console.print(f"  ... and {len(syllabus) - 5} more steps.")
+            console.print("\n[info]Run 'micro-learner next' to start your first lesson![/info]")
+            return None
 
-        console.print(f"[success]Successfully initialized topic:[/success] [topic]{topic}[/topic]")
-        console.print("[info]Syllabus Overview:[/info]")
-        for i, step in enumerate(syllabus[:5], 1):
-            console.print(f"  {i}. {step}")
-        if len(syllabus) > 5:
-            console.print(f"  ... and {len(syllabus) - 5} more steps.")
-        console.print("\n[info]Run 'micro-learner next' to start your first lesson![/info]")
-    else:
-        console.print("[error]Failed to generate syllabus. Please try again.[/error]")
+    except (OSError, ValueError) as exc:
+        delete_syllabus_record(record.id)
+        console.print(f"[error]Failed to initialize cached lessons: {exc}[/error]")
+        return None
 
 
 async def interactive_wait(topic: str, sub_topic: str, content: str, prompt_text: str) -> list[dict]:
