@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from micro_learner import main, state
+from micro_learner import main, state, logic
 
 
 def configure_state_paths(base_dir: Path):
@@ -48,8 +48,8 @@ class CliPersistenceTests(unittest.TestCase):
                 ),
             ]
 
-        with patch.object(main.LLMManager, "generate_syllabus", return_value=["Step 1", "Step 2"]), \
-             patch.object(main.LLMManager, "generate_cached_lessons", side_effect=generate_cached_lessons):
+        with patch.object(logic.LLMManager, "generate_syllabus", return_value=["Step 1", "Step 2"]), \
+             patch.object(logic.LLMManager, "generate_cached_lessons", side_effect=generate_cached_lessons):
             first = self.runner.invoke(main.cli, ["start", "Topic One"])
             second = self.runner.invoke(main.cli, ["start", "Topic Two"])
 
@@ -85,9 +85,12 @@ class CliPersistenceTests(unittest.TestCase):
             ],
         )
 
-        with patch.object(main.LLMManager, "generate_lesson", side_effect=AssertionError("should not call live lesson generation")), \
-             patch.object(main.click, "pause", return_value=None):
-            result = self.runner.invoke(main.cli, ["next"])
+        with patch.object(logic.LLMManager, "generate_lesson", side_effect=AssertionError("should not call live lesson generation")), \
+             patch.object(logic.interactive_wait, "__defaults__", (None,) * 0): # dummy patch to interactive_wait if needed or just patch click.getchar
+            # Actually next calls interactive_wait which uses click.getchar.
+            # Let's patch click.getchar to just return Enter.
+            with patch('click.getchar', return_value='\n'):
+                result = self.runner.invoke(main.cli, ["next"])
 
         self.assertEqual(result.exit_code, 0)
         note_content = state.get_note_path("Topic One").read_text(encoding="utf-8")
@@ -114,8 +117,9 @@ class CliPersistenceTests(unittest.TestCase):
             ],
         )
 
-        with patch.object(main.LLMManager, "generate_quiz", side_effect=AssertionError("should not call live quiz generation")), \
-             patch.object(main.click, "pause", return_value=None):
+        with patch.object(logic.LLMManager, "generate_quiz", side_effect=AssertionError("should not call live quiz generation")), \
+             patch('click.getchar', return_value='\n'), \
+             patch('time.sleep', return_value=None):
             result = self.runner.invoke(main.cli, ["next"])
 
         self.assertEqual(result.exit_code, 0)
@@ -140,8 +144,8 @@ class CliPersistenceTests(unittest.TestCase):
             ],
         )
 
-        with patch.object(main.click, "pause", return_value=None), \
-             patch.object(main, "append_note_entry", side_effect=OSError("disk full")):
+        with patch('click.getchar', return_value='\n'), \
+             patch.object(logic, "append_note_entry", side_effect=OSError("disk full")):
             result = self.runner.invoke(main.cli, ["next"])
 
         self.assertEqual(result.exit_code, 0)
@@ -149,8 +153,8 @@ class CliPersistenceTests(unittest.TestCase):
         self.assertEqual(state.load_active_syllabus().current_lesson_index, 0)
 
     def test_start_failure_does_not_leave_active_partial_cache(self):
-        with patch.object(main.LLMManager, "generate_syllabus", return_value=["Step 1"]), \
-             patch.object(main.LLMManager, "generate_cached_lessons", side_effect=ValueError("boom")):
+        with patch.object(logic.LLMManager, "generate_syllabus", return_value=["Step 1"]), \
+             patch.object(logic.LLMManager, "generate_cached_lessons", side_effect=ValueError("boom")):
             result = self.runner.invoke(main.cli, ["start", "Topic Broken"])
 
         self.assertEqual(result.exit_code, 0)

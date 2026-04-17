@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 
 from click.testing import CliRunner
 
-from micro_learner import main, state
+from micro_learner import main, state, logic
 
 
 def configure_state_paths(base_dir: Path):
@@ -47,7 +47,7 @@ class InterventionsTests(unittest.TestCase):
         getchar_mock = MagicMock(side_effect=['e', 'd', '\n'])
 
         # 3. Mock LLMManager methods
-        with patch.object(main, 'LLMManager') as MockLLM:
+        with patch.object(logic, 'LLMManager') as MockLLM:
             mock_llm_instance = MockLLM.return_value
             
             async def mock_gen_analogy(*args, **kwargs):
@@ -104,7 +104,7 @@ class InterventionsTests(unittest.TestCase):
         # After reveal: 'd' (Code), then '\n' (Complete)
         getchar_mock = MagicMock(side_effect=['e', ' ', 'd', '\n'])
 
-        with patch.object(main, 'LLMManager') as MockLLM:
+        with patch.object(logic, 'LLMManager') as MockLLM:
             mock_llm_instance = MockLLM.return_value
             async def mock_gen_analogy(*args, **kwargs):
                 return "Analogy before reveal."
