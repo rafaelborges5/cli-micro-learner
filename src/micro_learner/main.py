@@ -25,6 +25,7 @@ from micro_learner.ui import (
     console,
     render_answer,
     render_lesson,
+    render_intervention,
     render_progress,
     render_syllabus_browser,
 )
@@ -64,6 +65,7 @@ def build_note_entry(
     total_lessons: int,
     content: str,
     answer: str | None = None,
+    interventions: list[dict] | None = None,
 ) -> NoteEntry:
     """Normalizes a completed lesson for markdown export."""
     return NoteEntry(
@@ -76,6 +78,7 @@ def build_note_entry(
         completed_at=datetime.now(timezone.utc).isoformat(),
         content=content,
         answer=answer,
+        interventions=interventions or [],
     )
 
 
@@ -84,6 +87,7 @@ def build_note_entry_from_artifact(
     syllabus_id: str,
     topic: str,
     total_lessons: int,
+    interventions: list[dict] | None = None,
 ) -> NoteEntry:
     """Converts a cached lesson artifact to a note export payload."""
     return build_note_entry(
@@ -95,6 +99,7 @@ def build_note_entry_from_artifact(
         total_lessons=total_lessons,
         content=artifact.content,
         answer=artifact.answer,
+        interventions=interventions,
     )
 
 
@@ -223,6 +228,30 @@ async def start(topic):
     else:
         console.print("[error]Failed to generate syllabus. Please try again.[/error]")
 
+async def interactive_wait(topic: str, sub_topic: str, content: str, prompt_text: str) -> list[dict]:
+    llm = LLMManager()
+    interventions = []
+    while True:
+        click.echo(click.style(f"{prompt_text} (E: Analogy, D: Code, Any other key: Continue)", fg="cyan"))
+        char = click.getchar()
+        
+        if not char:
+            break
+            
+        if char.lower() == 'e':
+            with console.status("[warning]Thinking of an analogy...[/warning]"):
+                analogy = await llm.generate_analogy(topic, sub_topic, content)
+            console.print(render_intervention("Simpler Analogy", analogy, "warning"))
+            interventions.append({"type": "analogy", "content": analogy})
+        elif char.lower() == 'd':
+            with console.status("[info]Writing code example...[/info]"):
+                code = await llm.generate_code_example(topic, sub_topic, content)
+            console.print(render_intervention("Code Example", code, "info"))
+            interventions.append({"type": "code", "content": code})
+        else:
+            break
+    return interventions
+
 @cli.command()
 @coro
 async def next():
@@ -248,29 +277,30 @@ async def next():
     progress_str = (
         f"Step {step_number} of {active_syllabus.total_lessons}"
     )
-    note_entry = build_note_entry_from_artifact(
-        artifact=artifact,
-        syllabus_id=active_syllabus.id,
-        topic=active_syllabus.topic,
-        total_lessons=active_syllabus.total_lessons,
-    )
-
     if artifact.lesson_type == "quiz":
         console.print(render_lesson(f"Quiz: {artifact.sub_topic}", artifact.content, subtitle=progress_str))
         console.print("\n" + "─" * console.width)
 
-        click.pause(info="Think about your answer, then press any key to reveal...")
+        interventions = await interactive_wait(active_syllabus.topic, artifact.sub_topic, artifact.content, "Think about your answer, then press any key to reveal...")
 
         with console.status("[success]Revealing answer...[/success]"):
             time.sleep(1)
 
         console.print(render_answer((artifact.answer or "No answer key provided.").strip()))
         console.print("\n" + "─" * console.width)
-        click.pause(info="Press any key to complete this lesson...")
+        interventions.extend(await interactive_wait(active_syllabus.topic, artifact.sub_topic, artifact.answer or "", "Press any key to complete this lesson..."))
     else:
         console.print(render_lesson(artifact.sub_topic, artifact.content, subtitle=progress_str))
         console.print("\n" + "─" * console.width)
-        click.pause(info="Press any key to complete this lesson...")
+        interventions = await interactive_wait(active_syllabus.topic, artifact.sub_topic, artifact.content, "Press any key to complete this lesson...")
+
+    note_entry = build_note_entry_from_artifact(
+        artifact=artifact,
+        syllabus_id=active_syllabus.id,
+        topic=active_syllabus.topic,
+        total_lessons=active_syllabus.total_lessons,
+        interventions=interventions,
+    )
 
     try:
         append_note_entry(note_entry)

@@ -51,6 +51,7 @@ class NoteEntry(BaseModel):
     completed_at: str
     content: str
     answer: Optional[str] = None
+    interventions: List[dict] = Field(default_factory=list)
 
 
 def _now_iso() -> str:
@@ -274,6 +275,12 @@ def _format_lesson_entry(entry: NoteEntry) -> str:
 
     if entry.lesson_type == "quiz" and entry.answer:
         lines.extend(["", "### Answer", "", entry.answer.strip()])
+
+    for intervention in entry.interventions:
+        if intervention.get("type") == "analogy":
+            lines.extend(["", "### 💡 Simpler Analogy", "", intervention.get("content", "").strip()])
+        elif intervention.get("type") == "code":
+            lines.extend(["", "### 💻 Code Example", "", intervention.get("content", "").strip()])
 
     lines.append("")
     return "\n".join(lines)
