@@ -136,28 +136,18 @@ def render_to_ansi(renderable) -> str:
 def render_toolbar(current: int, total: int, topic_name: str) -> str:
     """Renders a single-line version of the progress bar for the REPL toolbar."""
     percentage = (current / total) * 100 if total > 0 else 0
-    
-    pb = ProgressBar(
-        total=total,
-        completed=current,
-        width=20,
-        style="info",
-        complete_style="success",
-        finished_style="success"
-    )
-    
-    content = Text.assemble(
-        (" [", "info"),
-        (f"{current}/{total}", "success"),
-        ("] ", "info"),
-        (f"{topic_name} ", "topic"),
-        (" ", "info"),
-    )
-    
-    toolbar_text = Text.assemble(
-        (f" {percentage:>3.0f}% ", "success"),
-        pb,
-        content
-    )
-    
+
+    bar_width = 20
+    filled = 0 if total <= 0 else min(bar_width, round((current / total) * bar_width))
+    empty = bar_width - filled
+    progress_bar = "█" * filled + "░" * empty
+
+    toolbar_text = Text()
+    toolbar_text.append(f" {percentage:>3.0f}% ", style="success")
+    toolbar_text.append(progress_bar, style="info")
+    toolbar_text.append(" [", style="info")
+    toolbar_text.append(f"{current}/{total}", style="success")
+    toolbar_text.append("] ", style="info")
+    toolbar_text.append(topic_name, style="topic")
+
     return render_to_ansi(toolbar_text)

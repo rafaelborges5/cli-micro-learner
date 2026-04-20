@@ -31,6 +31,7 @@ class REPLShell:
         self.session = PromptSession(completer=self.completer, history=self.history)
         self.prefetch_task = None
         self.prefetch_status = None
+        self.just_finished_lesson = False
 
     async def cmd_help(self, *args):
         """Displays available commands with detailed descriptions."""
@@ -109,6 +110,7 @@ class REPLShell:
     async def cmd_next(self, *args):
         """Fetches the next lesson."""
         await execute_next()
+        self.just_finished_lesson = True
 
     def _get_toolbar(self):
         """Generates the content for the bottom toolbar."""
@@ -148,6 +150,7 @@ class REPLShell:
                     continue
 
                 if user_input.startswith("/"):
+                    self.just_finished_lesson = False
                     parts = user_input.split()
                     cmd = parts[0].lower()
                     args = parts[1:]
