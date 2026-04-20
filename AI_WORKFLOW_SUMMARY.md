@@ -49,6 +49,15 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [x] **Unified Architecture:** Core logic decoupled into `logic.py`, shared between Click CLI and REPL.
 - [x] **Verified Stability:** All 23 tests passing with new architecture.
 
+### Phase 6: Advanced REPL Experience & UX Polish (PLANNED)
+- [ ] **Dynamic Layouts:** Persistent dashboard-style UI using `rich.layout`.
+- [ ] **Contextual Completion:** Smart suggestions for topic names and history.
+- [ ] **Notification System:** Inline alerts for background task completions.
+- [ ] **Interactive Modals:** Use dialog boxes for complex selections (e.g., resuming syllabi).
+
+### Phase 7: Gamification (ON THE FENCE)
+- [ ] **"Boss Fight" Checkpoints:** Integrated practical challenges every 5 lessons.
+
 ## 📂 Key Architecture
 - `src/micro_learner/main.py`: CLI entry point; launches REPL by default.
 - `src/micro_learner/repl.py`: Interactive shell loop, history, and auto-completion.

@@ -106,7 +106,17 @@ Goal: Replace the separate CLI commands with a single, persistent interactive se
 
 [x] Graceful Fallback: Keep the original Click commands working as a thin wrapper so the tool is still scriptable and pipe-friendly even after the REPL is the primary UX.
 
-Phase 6: Gamification (On The Fence)
+Phase 6: Advanced REPL Experience & UX Polish
+
+Goal: Elevate the persistent shell from a basic command loop to a seamless, high-end "AI Terminal" experience.
+
+[ ] Dynamic UI Layouts: Use rich.layout or specialized panels to create a dashboard-like view where progress is always visible in a dedicated header/footer without cluttering history.
+[ ] Contextual Auto-completion: Enhance tab-completion to suggest /resume topic names or potential /start suggestions based on learning history.
+[ ] Notification System: Implement non-intrusive "toast" notifications when background caching completes or a new note is successfully exported.
+[ ] Interactive Selection Modals: Replace the numbered list in /resume with a searchable, interactive selection menu using prompt_toolkit's dialog system.
+[ ] Themed Environments: Allow users to switch between different terminal aesthetics (e.g. "Matrix", "Modern", "Classic") via a /theme command.
+
+Phase 7: Gamification (On The Fence)
 
 Goal: Add challenge checkpoints for retention — not yet committed to this direction.
 
