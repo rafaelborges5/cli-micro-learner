@@ -122,6 +122,15 @@ Goal: Add challenge checkpoints for retention — not yet committed to this dire
 
 [ ] "Boss Fight" Checkpoints: Add logic to the State Manager. If current_lesson % 5 == 0, prompt the LLM to generate a practical challenge incorporating the last 4 lessons instead of a standard teaching.
 
+Phase 8: Guided Lesson Briefs
+
+Goal: Let users guide learning with richer lesson descriptions instead of being constrained to short lesson titles.
+
+[ ] Long-Form Lesson Inputs: Allow a syllabus step to store a longer user-provided description or brief for what should be taught.
+[ ] AI-Generated Step Titles: Generate a concise lesson title from that longer description for use in progress bars, menus, and notes.
+[ ] Prompting from Briefs: Use the longer description as the primary instructional context when generating the lesson so the user has more freedom to steer what is covered.
+[ ] UI/State Updates: Update syllabus storage, resume views, and note export so both the long description and the generated short title are handled cleanly.
+
 5. Next Steps
 
 To begin development, the first technical hurdle will be drafting the System Prompts that force the LLM to reliably return the JSON syllabus without any conversational fluff.

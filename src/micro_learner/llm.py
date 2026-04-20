@@ -134,6 +134,7 @@ class LLMManager:
         topic: str,
         syllabus: List[str],
         progress_callback: Optional[Callable[[int, int, str, str], None]] = None,
+        artifact_callback: Optional[Callable[[LessonArtifact], None]] = None,
         start_step: int = 1,
     ) -> List[LessonArtifact]:
         """Pre-generates lesson artifacts for a syllabus subset."""
@@ -172,15 +173,16 @@ class LLMManager:
                         else:
                             question_part, answer_part = raw_quiz, "No answer key provided."
 
-                        artifacts.append(
-                            LessonArtifact(
-                                step_number=step_number,
-                                sub_topic=sub_topic,
-                                lesson_type="quiz",
-                                content=question_part.strip(),
-                                answer=answer_part.strip(),
-                            )
+                        artifact = LessonArtifact(
+                            step_number=step_number,
+                            sub_topic=sub_topic,
+                            lesson_type="quiz",
+                            content=question_part.strip(),
+                            answer=answer_part.strip(),
                         )
+                        artifacts.append(artifact)
+                        if artifact_callback:
+                            artifact_callback(artifact)
                     else:
                         lesson_text = await self._send_with_session(
                             session,
@@ -195,14 +197,15 @@ class LLMManager:
                         if not lesson_text:
                             raise ValueError(f"Failed to generate cached lesson for step {step_number}.")
 
-                        artifacts.append(
-                            LessonArtifact(
-                                step_number=step_number,
-                                sub_topic=sub_topic,
-                                lesson_type="lesson",
-                                content=lesson_text.strip(),
-                            )
+                        artifact = LessonArtifact(
+                            step_number=step_number,
+                            sub_topic=sub_topic,
+                            lesson_type="lesson",
+                            content=lesson_text.strip(),
                         )
+                        artifacts.append(artifact)
+                        if artifact_callback:
+                            artifact_callback(artifact)
 
                     if progress_callback:
                         progress_callback(i + 1, total_steps, sub_topic, lesson_type)

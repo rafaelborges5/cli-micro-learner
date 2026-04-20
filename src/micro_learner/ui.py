@@ -133,7 +133,29 @@ def render_to_ansi(renderable) -> str:
         ansi_console.print(renderable, end="")
         return buf.getvalue()
 
-def render_toolbar(current: int, total: int, topic_name: str) -> str:
+
+def render_to_text(renderable, width: int | None = None) -> str:
+    """Renders a Rich renderable to plain terminal-safe text without ANSI codes."""
+    with StringIO() as buf:
+        text_console = Console(
+            file=buf,
+            force_terminal=False,
+            color_system=None,
+            theme=micro_theme,
+            width=width or console.width,
+        )
+        text_console.print(renderable, end="")
+        return buf.getvalue()
+
+def render_toolbar(
+    current: int,
+    total: int,
+    topic_name: str,
+    *,
+    suffix: str = "",
+    suffix_style: str = "warning",
+    max_width: int | None = None,
+) -> str:
     """Renders a single-line version of the progress bar for the REPL toolbar."""
     percentage = (current / total) * 100 if total > 0 else 0
 
@@ -149,5 +171,11 @@ def render_toolbar(current: int, total: int, topic_name: str) -> str:
     toolbar_text.append(f"{current}/{total}", style="success")
     toolbar_text.append("] ", style="info")
     toolbar_text.append(topic_name, style="topic")
+
+    if suffix:
+        toolbar_text.append(" ", style="info")
+        toolbar_text.append(suffix, style=suffix_style)
+
+    toolbar_text.truncate(max_width or console.width, overflow="ellipsis")
 
     return render_to_ansi(toolbar_text)
