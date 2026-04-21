@@ -12,11 +12,17 @@ SYLLABI_DIR = APP_DIR / "syllabi"
 LESSONS_DIR = APP_DIR / "lessons"
 NOTES_DIR = APP_DIR / "notes"
 STATE_FILE = APP_DIR / "state.json"
+SETTINGS_FILE = APP_DIR / "settings.json"
 
 
 class GlobalState(BaseModel):
     model_config = ConfigDict(extra="forbid")
     active_syllabus_id: Optional[str] = None
+
+
+class AppSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    theme_name: str = "Modern"
 
 
 class SyllabusRecord(BaseModel):
@@ -88,6 +94,10 @@ def _new_global_state() -> GlobalState:
     return GlobalState()
 
 
+def _new_app_settings() -> AppSettings:
+    return AppSettings()
+
+
 def bootstrap():
     """Initializes the ~/.micro_learner directory structure."""
     APP_DIR.mkdir(parents=True, exist_ok=True)
@@ -99,6 +109,11 @@ def bootstrap():
         load_state()
     except (json.JSONDecodeError, ValidationError):
         save_state(_new_global_state())
+
+    try:
+        load_settings()
+    except (json.JSONDecodeError, ValidationError):
+        save_settings(_new_app_settings())
 
 
 def load_state() -> GlobalState:
@@ -117,6 +132,24 @@ def save_state(state: GlobalState):
     """Saves the global state to the JSON file."""
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         f.write(state.model_dump_json(indent=4))
+
+
+def load_settings() -> AppSettings:
+    """Loads persisted app settings from disk."""
+    if not SETTINGS_FILE.exists():
+        settings = _new_app_settings()
+        save_settings(settings)
+        return settings
+
+    with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return AppSettings(**data)
+
+
+def save_settings(settings: AppSettings):
+    """Saves persisted app settings to disk."""
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        f.write(settings.model_dump_json(indent=4))
 
 
 def save_syllabus_record(record: SyllabusRecord):

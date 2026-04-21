@@ -13,6 +13,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import HSplit
 from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import Dialog, Label, RadioList, TextArea
 
 from micro_learner.llm import LLMManager
@@ -28,12 +29,24 @@ from micro_learner.state import (
     is_syllabus_resumable,
     load_lesson_artifact,
     load_active_syllabus,
+    load_settings,
     load_syllabus_record,
     list_syllabus_records,
     mark_syllabus_cache_complete,
     save_lesson_artifact,
+    save_settings,
 )
-from micro_learner.ui import console, render_progress, render_toolbar
+from micro_learner.ui import (
+    build_prompt_message,
+    build_prompt_style,
+    console,
+    get_available_theme_names,
+    get_current_theme,
+    render_progress,
+    render_toolbar,
+    resolve_theme_name,
+    set_current_theme,
+)
 
 
 class REPLIO(TerminalIO):
@@ -111,6 +124,7 @@ class REPLSessionState:
     resume_topics: list[str] = None
     pending_toasts: list[REPLToast] = None
     show_context_header: bool = True
+    theme_name: str = "Modern"
 
     def __post_init__(self):
         if self.prefetch is None:
@@ -133,6 +147,7 @@ class REPLShell:
             "/resume": self.cmd_resume,
             "/start": self.cmd_start,
             "/next": self.cmd_next,
+            "/theme": self.cmd_theme,
         }
         self.completer = REPLCompleter(list(self.commands.keys()), self)
         self.history = InMemoryHistory()
@@ -140,7 +155,27 @@ class REPLShell:
         self.prefetch_task = None
         self.state = REPLSessionState()
         self.io = REPLIO()
+        self._load_theme_settings()
         self._refresh_view_state()
+
+    def _load_theme_settings(self):
+        """Load the persisted theme before the shell renders anything."""
+        settings = load_settings()
+        resolved_name = resolve_theme_name(settings.theme_name) or "Modern"
+        if resolved_name != settings.theme_name:
+            save_settings(type(settings)(theme_name=resolved_name))
+        theme = set_current_theme(resolved_name)
+        self.state.theme_name = theme.name
+
+    def _apply_theme(self, theme_name: str):
+        """Apply and persist a new theme choice."""
+        theme = set_current_theme(theme_name)
+        self.state.theme_name = theme.name
+        save_settings(load_settings().model_copy(update={"theme_name": theme.name}))
+        return theme
+
+    def _prompt_style(self) -> Style:
+        return build_prompt_style(self.state.theme_name)
 
     def _build_completion_topics(self) -> tuple[list[str], list[str]]:
         """Build deduplicated completion topic lists ordered by syllabus recency."""
@@ -360,6 +395,7 @@ class REPLShell:
             key_bindings=key_bindings,
             full_screen=True,
             mouse_support=True,
+            style=self._prompt_style(),
         )
         sync_radio_values()
         return await app.run_async()
@@ -400,6 +436,7 @@ class REPLShell:
             ("/next", "Fetch your next bite-sized lesson or quiz."),
             ("/status", "Show your current progress and active topic."),
             ("/resume", "Browse your saved syllabi and switch active topics."),
+            ("/theme [name]", "View or switch the terminal theme."),
             ("/help", "Show this help directory."),
             ("/quit", "Cleanly exit the learning session."),
         ]
@@ -445,6 +482,31 @@ class REPLShell:
         if selection is not None:
             self._activate_resume_candidate(selection)
         self._refresh_view_state()
+        self._suppress_next_context_header()
+
+    async def cmd_theme(self, *args):
+        """Show or change the active terminal theme."""
+        available_themes = ", ".join(get_available_theme_names())
+        if not args:
+            console.print(
+                f"[success]Current theme:[/success] [topic]{self.state.theme_name}[/topic] "
+                f"[info]| Available:[/info] {available_themes}"
+            )
+            self._suppress_next_context_header()
+            return
+
+        requested_name = " ".join(args).strip()
+        resolved_name = resolve_theme_name(requested_name)
+        if not resolved_name:
+            console.print(
+                f"[error]Unknown theme:[/error] [topic]{requested_name}[/topic] "
+                f"[info]| Available:[/info] {available_themes}"
+            )
+            self._suppress_next_context_header()
+            return
+
+        theme = self._apply_theme(resolved_name)
+        console.print(f"[success]Theme updated:[/success] [topic]{theme.name}[/topic]")
         self._suppress_next_context_header()
 
     async def cmd_start(self, *args):
@@ -585,8 +647,9 @@ class REPLShell:
                     self._render_toast(toast)
                 with patch_stdout():
                     user_input = await self.session.prompt_async(
-                        HTML('<style color="cyan">micro-learner</style> <style color="white">></style> '),
+                        HTML(build_prompt_message(self.state.theme_name)),
                         bottom_toolbar=self._get_toolbar,
+                        style=self._prompt_style(),
                     )
                 user_input = user_input.strip()
                 if not user_input:
