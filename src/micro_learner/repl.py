@@ -1,5 +1,7 @@
 import asyncio
 import sys
+from dataclasses import dataclass
+from typing import Literal
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
@@ -23,6 +25,31 @@ class REPLIO(TerminalIO):
     """REPL IO uses the standard terminal output path."""
 
 
+@dataclass
+class ActiveTopicView:
+    topic: str
+    current_lesson_index: int
+    total_lessons: int
+    syllabus_id: str
+
+
+@dataclass
+class PrefetchViewState:
+    status: Literal["idle", "warming", "complete", "failed"] = "idle"
+    progress_label: str = ""
+
+
+@dataclass
+class REPLSessionState:
+    active_topic: ActiveTopicView | None = None
+    prefetch: PrefetchViewState = None
+    show_context_header: bool = True
+
+    def __post_init__(self):
+        if self.prefetch is None:
+            self.prefetch = PrefetchViewState()
+
+
 class REPLShell:
     def __init__(self):
         self.commands = {
@@ -38,9 +65,62 @@ class REPLShell:
         self.history = InMemoryHistory()
         self.session = PromptSession(completer=self.completer, history=self.history)
         self.prefetch_task = None
-        self.prefetch_status = None
-        self.just_finished_lesson = False
+        self.state = REPLSessionState()
         self.io = REPLIO()
+        self._refresh_view_state()
+
+    def _refresh_view_state(self):
+        """Refresh the derived REPL view state from persisted data."""
+        active = load_active_syllabus()
+        if not active:
+            self.state.active_topic = None
+            return
+
+        self.state.active_topic = ActiveTopicView(
+            topic=active.topic,
+            current_lesson_index=active.current_lesson_index,
+            total_lessons=active.total_lessons,
+            syllabus_id=active.id,
+        )
+
+    def _suppress_next_context_header(self):
+        """Skip the extra context header after commands that already rendered output."""
+        self.state.show_context_header = False
+
+    def _consume_context_header_flag(self) -> bool:
+        """Return whether to show the context header for this prompt cycle."""
+        should_show = self.state.show_context_header
+        self.state.show_context_header = True
+        return should_show
+
+    def _mark_prefetch_started(self, initial_progress: str):
+        self.state.prefetch = PrefetchViewState(status="warming", progress_label=initial_progress)
+
+    def _mark_prefetch_progress(self, progress_label: str):
+        self.state.prefetch.status = "warming"
+        self.state.prefetch.progress_label = progress_label
+
+    def _mark_prefetch_complete(self):
+        self.state.prefetch.status = "complete"
+        self.state.prefetch.progress_label = ""
+
+    def _mark_prefetch_failed(self):
+        self.state.prefetch.status = "failed"
+        self.state.prefetch.progress_label = ""
+
+    def _reset_prefetch_view(self):
+        self.state.prefetch = PrefetchViewState()
+
+    def _toolbar_suffix(self) -> tuple[str, str]:
+        """Build toolbar suffix text from the current view state."""
+        if self.state.prefetch.status == "warming":
+            status = self.state.prefetch.progress_label or "..."
+            return f"[Caching {status}]", "warning"
+        if self.state.prefetch.status == "complete":
+            return "[Cache Ready]", "success"
+        if self.state.prefetch.status == "failed":
+            return "[Cache Error]", "error"
+        return "", "warning"
 
     async def cmd_help(self, *args):
         """Displays available commands with detailed descriptions."""
@@ -67,12 +147,14 @@ class REPLShell:
     async def cmd_status(self, *args):
         """Shows the current status."""
         execute_status(io=self.io)
-        self.just_finished_lesson = True
+        self._refresh_view_state()
+        self._suppress_next_context_header()
 
     async def cmd_resume(self, *args):
         """Resumes a syllabus."""
         await execute_resume(io=self.io)
-        self.just_finished_lesson = True
+        self._refresh_view_state()
+        self._suppress_next_context_header()
 
     async def cmd_start(self, *args):
         """Starts a new topic."""
@@ -82,16 +164,18 @@ class REPLShell:
 
         if self.prefetch_task and not self.prefetch_task.done():
             self.prefetch_task.cancel()
+        self._reset_prefetch_view()
 
         topic = " ".join(args)
         result = await execute_start(topic, background=True, io=self.io)
+        self._refresh_view_state()
         if result:
             remainder, record_id = result
-            self.prefetch_status = f"1/{len(remainder)+1}"
+            self._mark_prefetch_started(f"1/{len(remainder)+1}")
             self.prefetch_task = asyncio.create_task(
                 self._background_prefetch(topic, remainder, record_id)
             )
-        self.just_finished_lesson = True
+        self._suppress_next_context_header()
 
     async def _background_prefetch(self, topic, remainder, record_id):
         """Task to generate remaining lessons in the background."""
@@ -100,12 +184,12 @@ class REPLShell:
             total = len(remainder) + 1
 
             def on_progress(idx, total_steps, sub_topic, lesson_type):
-                self.prefetch_status = f"{idx + 2}/{total}"
+                self._mark_prefetch_progress(f"{idx + 2}/{total}")
 
             def on_artifact(artifact):
                 save_lesson_artifact(record_id, artifact)
 
-            artifacts = await llm.generate_cached_lessons(
+            await llm.generate_cached_lessons(
                 topic,
                 remainder,
                 start_step=2,
@@ -116,52 +200,45 @@ class REPLShell:
             record = load_syllabus_record(record_id)
             if record:
                 mark_syllabus_cache_complete(record)
-            self.prefetch_status = "complete"
+            self._refresh_view_state()
+            self._mark_prefetch_complete()
             console.print("[success]Background cache warmup complete.[/success]")
         except asyncio.CancelledError:
             pass
         except Exception:
-            self.prefetch_status = "failed"
+            self._mark_prefetch_failed()
             console.print("[error]Background cache warmup failed.[/error]")
 
     async def cmd_next(self, *args):
         """Fetches the next lesson."""
-        active = load_active_syllabus()
+        self._refresh_view_state()
+        active = self.state.active_topic
         if active and active.current_lesson_index < active.total_lessons:
             step_number = active.current_lesson_index + 1
-            artifact = load_lesson_artifact(active.id, step_number)
+            artifact = load_lesson_artifact(active.syllabus_id, step_number)
             if not artifact and self.prefetch_task and not self.prefetch_task.done():
                 for _ in range(20):
                     await asyncio.sleep(0.1)
-                    artifact = load_lesson_artifact(active.id, step_number)
+                    artifact = load_lesson_artifact(active.syllabus_id, step_number)
                     if artifact:
                         break
                 if not artifact:
                     console.print("[warning]Your next lesson is still being cached. Try again in a moment.[/warning]")
-                    self.just_finished_lesson = True
+                    self._suppress_next_context_header()
                     return
 
         await execute_next(io=self.io)
-        self.just_finished_lesson = True
+        self._refresh_view_state()
+        self._suppress_next_context_header()
 
     def _get_toolbar(self):
         """Generates the content for the bottom toolbar."""
-        active = load_active_syllabus()
+        self._refresh_view_state()
+        active = self.state.active_topic
         if not active:
             return ANSI("\x1b[36m [No active topic] Type /start to begin\x1b[0m")
 
-        suffix = ""
-        suffix_style = "warning"
-        if self.prefetch_task and not self.prefetch_task.done():
-            status = self.prefetch_status or "..."
-            suffix = f"[Caching {status}]"
-            suffix_style = "warning"
-        elif self.prefetch_status == "complete":
-            suffix = "[Cache Ready]"
-            suffix_style = "success"
-        elif self.prefetch_status == "failed":
-            suffix = "[Cache Error]"
-            suffix_style = "error"
+        suffix, suffix_style = self._toolbar_suffix()
 
         toolbar_ansi = render_toolbar(
             active.current_lesson_index,
@@ -175,7 +252,8 @@ class REPLShell:
 
     def _print_context_header(self):
         """Print a compact context snapshot above the next prompt."""
-        active = load_active_syllabus()
+        self._refresh_view_state()
+        active = self.state.active_topic
         if not active:
             console.print("[info]No active topic. Use /start to begin.[/info]")
             return
@@ -187,8 +265,10 @@ class REPLShell:
                 active.topic,
             )
         )
-        if self.prefetch_task and not self.prefetch_task.done():
-            console.print(f"[warning]Caching in background:[/warning] [info]{self.prefetch_status or '...'}[/info]")
+        if self.state.prefetch.status == "warming":
+            console.print(
+                f"[warning]Caching in background:[/warning] [info]{self.state.prefetch.progress_label or '...'}[/info]"
+            )
 
     async def run(self):
         """Main REPL loop."""
@@ -197,9 +277,7 @@ class REPLShell:
 
         while True:
             try:
-                if self.just_finished_lesson:
-                    self.just_finished_lesson = False
-                else:
+                if self._consume_context_header_flag():
                     self._print_context_header()
                 with patch_stdout():
                     user_input = await self.session.prompt_async(
