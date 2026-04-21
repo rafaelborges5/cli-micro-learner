@@ -56,6 +56,21 @@ class TerminalIO:
 
 DEFAULT_IO = TerminalIO()
 
+
+class ExecuteNextResult:
+    """Structured outcome for next-step execution."""
+
+    def __init__(
+        self,
+        *,
+        note_exported: bool = False,
+        note_export_path: str | None = None,
+        note_export_error: str | None = None,
+    ):
+        self.note_exported = note_exported
+        self.note_export_path = note_export_path
+        self.note_export_error = note_export_error
+
 def get_random_status():
     """Returns a random encouraging status message."""
     messages = [
@@ -303,18 +318,18 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
     
     if not state_data.active_syllabus_id or not active_syllabus or not active_syllabus.syllabus:
         io.print("[warning]No active topic. Use 'micro-learner start <topic>' first.[/warning]")
-        return
+        return ExecuteNextResult()
 
     if active_syllabus.current_lesson_index >= active_syllabus.total_lessons:
         io.print("[success]You have already completed the syllabus for this topic![/success]")
         io.print("[info]Use 'micro-learner start <new topic>' to learn something else.[/info]")
-        return
+        return ExecuteNextResult()
 
     step_number = active_syllabus.current_lesson_index + 1
     artifact = load_lesson_artifact(active_syllabus.id, step_number)
     if not artifact:
         io.print("[error]Failed to load the cached lesson artifact for this step.[/error]")
-        return
+        return ExecuteNextResult()
 
     progress_str = (
         f"Step {step_number} of {active_syllabus.total_lessons}"
@@ -365,10 +380,10 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
     )
 
     try:
-        append_note_entry(note_entry)
+        note_path = append_note_entry(note_entry)
     except OSError as exc:
         io.print(f"[error]Failed to export lesson notes: {exc}[/error]")
-        return
+        return ExecuteNextResult(note_export_error=str(exc))
 
     # Common progress update logic
     active_syllabus.current_lesson_index += 1
@@ -381,4 +396,8 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
             active_syllabus.total_lessons,
             active_syllabus.topic,
         )
+    )
+    return ExecuteNextResult(
+        note_exported=True,
+        note_export_path=str(note_path),
     )

@@ -11,7 +11,14 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
 from micro_learner.llm import LLMManager
-from micro_learner.logic import TerminalIO, execute_next, execute_resume, execute_start, execute_status
+from micro_learner.logic import (
+    ExecuteNextResult,
+    TerminalIO,
+    execute_next,
+    execute_resume,
+    execute_start,
+    execute_status,
+)
 from micro_learner.state import (
     activate_syllabus,
     is_syllabus_resumable,
@@ -77,11 +84,18 @@ class PrefetchViewState:
 
 
 @dataclass
+class REPLToast:
+    message: str
+    style: Literal["success", "warning", "error", "info"] = "info"
+
+
+@dataclass
 class REPLSessionState:
     active_topic: ActiveTopicView | None = None
     prefetch: PrefetchViewState = None
     completion_topics: list[str] = None
     resume_topics: list[str] = None
+    pending_toasts: list[REPLToast] = None
     show_context_header: bool = True
 
     def __post_init__(self):
@@ -91,6 +105,8 @@ class REPLSessionState:
             self.completion_topics = []
         if self.resume_topics is None:
             self.resume_topics = []
+        if self.pending_toasts is None:
+            self.pending_toasts = []
 
 
 class REPLShell:
@@ -191,6 +207,17 @@ class REPLShell:
 
     def _reset_prefetch_view(self):
         self.state.prefetch = PrefetchViewState()
+
+    def _enqueue_toast(self, message: str, style: Literal["success", "warning", "error", "info"]):
+        self.state.pending_toasts.append(REPLToast(message=message, style=style))
+
+    def _consume_next_toast(self) -> REPLToast | None:
+        if not self.state.pending_toasts:
+            return None
+        return self.state.pending_toasts.pop(0)
+
+    def _render_toast(self, toast: REPLToast):
+        console.print(f"[{toast.style}]{toast.message}[/{toast.style}]")
 
     def _toolbar_suffix(self) -> tuple[str, str]:
         """Build toolbar suffix text from the current view state."""
@@ -305,12 +332,12 @@ class REPLShell:
                 mark_syllabus_cache_complete(record)
             self._refresh_view_state()
             self._mark_prefetch_complete()
-            console.print("[success]Background cache warmup complete.[/success]")
+            self._enqueue_toast("Background cache warmup complete.", "success")
         except asyncio.CancelledError:
             pass
         except Exception:
             self._mark_prefetch_failed()
-            console.print("[error]Background cache warmup failed.[/error]")
+            self._enqueue_toast("Background cache warmup failed.", "error")
 
     async def cmd_next(self, *args):
         """Fetches the next lesson."""
@@ -330,9 +357,19 @@ class REPLShell:
                     self._suppress_next_context_header()
                     return
 
-        await execute_next(io=self.io)
+        result = await execute_next(io=self.io)
         self._refresh_view_state()
+        self._handle_execute_next_result(result)
         self._suppress_next_context_header()
+
+    def _handle_execute_next_result(self, result: ExecuteNextResult | None):
+        """Queue REPL-only notifications from the lesson flow."""
+        if result is None:
+            return
+        if result.note_exported:
+            self._enqueue_toast("Lesson note exported.", "success")
+        elif result.note_export_error:
+            self._enqueue_toast(f"Lesson note export failed: {result.note_export_error}", "error")
 
     def _get_toolbar(self):
         """Generates the content for the bottom toolbar."""
@@ -382,6 +419,9 @@ class REPLShell:
             try:
                 if self._consume_context_header_flag():
                     self._print_context_header()
+                toast = self._consume_next_toast()
+                if toast:
+                    self._render_toast(toast)
                 with patch_stdout():
                     user_input = await self.session.prompt_async(
                         HTML('<style color="cyan">micro-learner</style> <style color="white">></style> '),
