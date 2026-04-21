@@ -88,6 +88,55 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([completion.text for completion in completions], ["Second Topic", "Active Topic"])
 
+    def test_build_resume_candidates_includes_status_metadata(self):
+        shell = repl.REPLShell()
+        active = state.initialize_cached_topic(
+            "Active Topic",
+            ["Step 1"],
+            [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
+        )
+        active.current_lesson_index = 1
+        state.save_syllabus_record(active)
+        state.activate_syllabus(active.id)
+        state.create_syllabus_record("Broken Topic", ["Step 1"])
+
+        shell._refresh_view_state()
+        candidates = shell._build_resume_candidates()
+
+        self.assertEqual(candidates[0].topic, "Broken Topic")
+        self.assertFalse(candidates[0].resumable)
+        self.assertIn("Cache Incomplete", candidates[0].label)
+        self.assertTrue(candidates[1].is_active)
+        self.assertTrue(candidates[1].is_completed)
+        self.assertIn("Completed", candidates[1].label)
+
+    def test_build_resume_candidates_treats_full_pending_cache_as_ready(self):
+        shell = repl.REPLShell()
+        record = state.create_syllabus_record("Topic One", ["Step 1", "Step 2"])
+        state.save_lesson_artifacts(
+            record.id,
+            [
+                state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One"),
+                state.LessonArtifact(step_number=2, sub_topic="Step 2", lesson_type="lesson", content="Two"),
+            ],
+        )
+
+        candidates = shell._build_resume_candidates()
+
+        self.assertTrue(candidates[0].resumable)
+        self.assertNotIn("Cache Incomplete", candidates[0].label)
+
+    def test_filter_resume_candidates_matches_live_query(self):
+        shell = repl.REPLShell()
+        candidates = [
+            repl.ResumeCandidate("one", "Pending But Full", "A", True, False, False),
+            repl.ResumeCandidate("two", "Topic Two", "B", True, True, False),
+        ]
+
+        filtered = shell._filter_resume_candidates(candidates, "pend")
+
+        self.assertEqual([candidate.topic for candidate in filtered], ["Pending But Full"])
+
     def test_completion_is_case_insensitive_prefix_based(self):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
@@ -275,6 +324,51 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(repl.console, "print") as print_mock:
             await shell.cmd_resume("missing")
 
+        print_mock.assert_called()
+
+    async def test_resume_without_args_uses_modal_selection(self):
+        shell = repl.REPLShell()
+        first = state.initialize_cached_topic(
+            "Topic One",
+            ["Step 1"],
+            [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
+        )
+        second = state.initialize_cached_topic(
+            "Topic Two",
+            ["Step 1"],
+            [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Two")],
+        )
+        state.activate_syllabus(first.id)
+
+        with patch.object(shell, "_show_resume_modal", AsyncMock(return_value=second.id)), \
+             patch.object(repl, "execute_status") as execute_status_mock:
+            await shell.cmd_resume()
+
+        self.assertEqual(state.load_state().active_syllabus_id, second.id)
+        execute_status_mock.assert_called_once_with(io=shell.io)
+
+    async def test_resume_modal_cancel_keeps_active_state(self):
+        shell = repl.REPLShell()
+        first = state.initialize_cached_topic(
+            "Topic One",
+            ["Step 1"],
+            [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
+        )
+        state.activate_syllabus(first.id)
+
+        with patch.object(shell, "_show_resume_modal", AsyncMock(return_value=None)):
+            await shell.cmd_resume()
+
+        self.assertEqual(state.load_state().active_syllabus_id, first.id)
+
+    async def test_activate_resume_candidate_rejects_incomplete_record(self):
+        shell = repl.REPLShell()
+        broken = state.create_syllabus_record("Broken Topic", ["Step 1"])
+
+        with patch.object(repl.console, "print") as print_mock:
+            activated = shell._activate_resume_candidate(broken.id)
+
+        self.assertFalse(activated)
         print_mock.assert_called()
 
     async def test_next_enqueues_note_export_success_toast(self):

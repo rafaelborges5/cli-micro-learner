@@ -4,18 +4,22 @@ from dataclasses import dataclass
 from typing import Literal
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import Application
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import HTML, ANSI
 from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout import Layout
+from prompt_toolkit.layout.containers import HSplit
 from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.widgets import Dialog, Label, RadioList, TextArea
 
 from micro_learner.llm import LLMManager
 from micro_learner.logic import (
     ExecuteNextResult,
     TerminalIO,
     execute_next,
-    execute_resume,
     execute_start,
     execute_status,
 )
@@ -90,6 +94,16 @@ class REPLToast:
 
 
 @dataclass
+class ResumeCandidate:
+    record_id: str
+    topic: str
+    label: str
+    resumable: bool
+    is_active: bool
+    is_completed: bool
+
+
+@dataclass
 class REPLSessionState:
     active_topic: ActiveTopicView | None = None
     prefetch: PrefetchViewState = None
@@ -155,6 +169,35 @@ class REPLShell:
 
         return completion_topics, resume_topics
 
+    def _build_resume_candidates(self) -> list[ResumeCandidate]:
+        """Build resume modal candidates with compact status labels."""
+        active_id = self.state.active_topic.syllabus_id if self.state.active_topic else None
+        candidates: list[ResumeCandidate] = []
+        for record in list_syllabus_records():
+            completion = (
+                f"{(record.current_lesson_index / record.total_lessons * 100) if record.total_lessons else 0:.0f}%"
+            )
+            statuses = []
+            if record.id == active_id:
+                statuses.append("Active")
+            if record.current_lesson_index >= record.total_lessons and record.total_lessons > 0:
+                statuses.append("Completed")
+            if not is_syllabus_resumable(record):
+                statuses.append("Cache Incomplete")
+            status_text = ", ".join(statuses) if statuses else "Ready"
+            label = f"{record.topic} | {record.current_lesson_index}/{record.total_lessons} | {completion} | {status_text}"
+            candidates.append(
+                ResumeCandidate(
+                    record_id=record.id,
+                    topic=record.topic,
+                    label=label,
+                    resumable=is_syllabus_resumable(record),
+                    is_active=record.id == active_id,
+                    is_completed=record.current_lesson_index >= record.total_lessons and record.total_lessons > 0,
+                )
+            )
+        return candidates
+
     def _refresh_view_state(self):
         """Refresh the derived REPL view state from persisted data."""
         active = load_active_syllabus()
@@ -219,6 +262,123 @@ class REPLShell:
     def _render_toast(self, toast: REPLToast):
         console.print(f"[{toast.style}]{toast.message}[/{toast.style}]")
 
+    def _filter_resume_candidates(
+        self,
+        candidates: list[ResumeCandidate],
+        query: str,
+    ) -> list[ResumeCandidate]:
+        """Return candidates matching the current live-search query."""
+        normalized = query.strip().lower()
+        return [
+            candidate for candidate in candidates
+            if not normalized or normalized in candidate.topic.lower()
+        ]
+
+    async def _show_resume_modal(self) -> str | None:
+        """Show a live-search resume palette and return the selected syllabus id."""
+        candidates = self._build_resume_candidates()
+        if not candidates:
+            return None
+        filtered_candidates = list(candidates)
+        no_match_value = "__no_match__"
+        radio_list = RadioList(values=[(candidate.record_id, candidate.label) for candidate in filtered_candidates])
+        help_label = Label("Type to filter. Up/Down to choose. Enter to resume. Esc to cancel.")
+        app: Application | None = None
+        search_field = TextArea(
+            multiline=False,
+            prompt="Search: ",
+        )
+
+        def sync_radio_values():
+            values = (
+                [(candidate.record_id, candidate.label) for candidate in filtered_candidates]
+                if filtered_candidates
+                else [(no_match_value, "No matching topics")]
+            )
+            radio_list.values = values
+            current_value = radio_list.current_value
+            if current_value not in {value for value, _ in values}:
+                radio_list._selected_index = 0
+
+        def apply_filter():
+            query_text = search_field.text
+            filtered_candidates.clear()
+            filtered_candidates.extend(self._filter_resume_candidates(candidates, query_text))
+            help_label.text = (
+                "Type to filter. Up/Down to choose. Enter to resume. Esc to cancel."
+                if filtered_candidates
+                else "No matches. Keep typing or press Backspace. Esc to cancel."
+            )
+            sync_radio_values()
+            if app is not None:
+                app.invalidate()
+
+        def accept_selection():
+            selected = radio_list.current_value
+            if selected == no_match_value:
+                return
+            app.exit(result=selected)
+
+        dialog = Dialog(
+            title="Resume Topic",
+            body=HSplit(
+                [
+                    help_label,
+                    search_field,
+                    radio_list,
+                ]
+            ),
+            with_background=True,
+        )
+
+        key_bindings = KeyBindings()
+
+        @key_bindings.add("escape")
+        def _cancel(event):
+            event.app.exit(result=None)
+
+        @key_bindings.add("enter")
+        def _accept(event):
+            accept_selection()
+
+        @key_bindings.add("down")
+        def _move_down(event):
+            if radio_list._selected_index < len(radio_list.values) - 1:
+                radio_list._selected_index += 1
+                event.app.invalidate()
+
+        @key_bindings.add("up")
+        def _move_up(event):
+            if radio_list._selected_index > 0:
+                radio_list._selected_index -= 1
+                event.app.invalidate()
+
+        search_field.buffer.on_text_changed += lambda _: apply_filter()
+
+        app = Application(
+            layout=Layout(dialog, focused_element=search_field),
+            key_bindings=key_bindings,
+            full_screen=True,
+            mouse_support=True,
+        )
+        sync_radio_values()
+        return await app.run_async()
+
+    def _activate_resume_candidate(self, record_id: str) -> bool:
+        """Activate a selected resume candidate and render the resulting status."""
+        record = load_syllabus_record(record_id)
+        if not record:
+            console.print("[error]That syllabus is no longer available.[/error]")
+            return False
+        if not is_syllabus_resumable(record):
+            console.print("[error]That syllabus cannot be resumed because its cache is incomplete or missing.[/error]")
+            return False
+
+        activate_syllabus(record.id)
+        console.print(f"[success]Resumed topic:[/success] [topic]{record.topic}[/topic]")
+        execute_status(io=self.io)
+        return True
+
     def _toolbar_suffix(self) -> tuple[str, str]:
         """Build toolbar suffix text from the current view state."""
         if self.state.prefetch.status == "warming":
@@ -265,14 +425,7 @@ class REPLShell:
             for record in list_syllabus_records():
                 if record.topic.lower() != topic.lower():
                     continue
-                if not is_syllabus_resumable(record):
-                    console.print("[error]That syllabus cannot be resumed because its cache is incomplete or missing.[/error]")
-                    self._refresh_view_state()
-                    self._suppress_next_context_header()
-                    return
-                activate_syllabus(record.id)
-                console.print(f"[success]Resumed topic:[/success] [topic]{record.topic}[/topic]")
-                execute_status(io=self.io)
+                self._activate_resume_candidate(record.id)
                 self._refresh_view_state()
                 self._suppress_next_context_header()
                 return
@@ -282,7 +435,15 @@ class REPLShell:
             self._suppress_next_context_header()
             return
 
-        await execute_resume(io=self.io)
+        if not list_syllabus_records():
+            console.print("[info]No saved syllabi available. Use 'micro-learner start <topic>' to begin.[/info]")
+            self._refresh_view_state()
+            self._suppress_next_context_header()
+            return
+
+        selection = await self._show_resume_modal()
+        if selection is not None:
+            self._activate_resume_candidate(selection)
         self._refresh_view_state()
         self._suppress_next_context_header()
 

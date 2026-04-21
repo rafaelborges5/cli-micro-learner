@@ -160,9 +160,18 @@ def list_syllabus_records() -> List[SyllabusRecord]:
 
 def is_syllabus_resumable(record: SyllabusRecord) -> bool:
     """Returns whether a syllabus record can be resumed safely."""
-    if record.cache_status != "complete":
+    lesson_dir = get_lesson_cache_dir(record.id)
+    if not lesson_dir.exists():
         return False
-    return get_lesson_cache_dir(record.id).exists()
+    if record.cache_status == "complete":
+        return True
+
+    for step_number in range(1, record.total_lessons + 1):
+        if load_lesson_artifact(record.id, step_number) is None:
+            return False
+
+    mark_syllabus_cache_complete(record)
+    return True
 
 
 def create_syllabus_record(topic: str, syllabus: List[str]) -> SyllabusRecord:
