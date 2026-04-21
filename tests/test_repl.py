@@ -25,9 +25,11 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def test_shell_initializes_just_finished_lesson_flag(self):
+    def test_shell_initializes_session_state(self):
         shell = repl.REPLShell()
-        self.assertFalse(shell.just_finished_lesson)
+        self.assertIsNone(shell.state.active_topic)
+        self.assertTrue(shell.state.show_context_header)
+        self.assertEqual(shell.state.prefetch.status, "idle")
 
     def test_toolbar_shows_no_active_topic_message(self):
         shell = repl.REPLShell()
@@ -68,14 +70,14 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(print_mock.called)
 
-    async def test_next_marks_just_finished_lesson_flag(self):
+    async def test_next_suppresses_next_context_header_cycle(self):
         shell = repl.REPLShell()
 
         with patch.object(repl, "execute_next", AsyncMock()) as execute_next_mock:
             await shell.cmd_next()
 
         execute_next_mock.assert_awaited_once_with(io=shell.io)
-        self.assertTrue(shell.just_finished_lesson)
+        self.assertFalse(shell.state.show_context_header)
 
     async def test_status_routes_through_repl_io(self):
         shell = repl.REPLShell()
@@ -84,6 +86,14 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
             await shell.cmd_status()
 
         execute_status_mock.assert_called_once_with(io=shell.io)
+        self.assertFalse(shell.state.show_context_header)
+
+    def test_consume_context_header_flag_resets_to_default(self):
+        shell = repl.REPLShell()
+        shell._suppress_next_context_header()
+
+        self.assertFalse(shell._consume_context_header_flag())
+        self.assertTrue(shell.state.show_context_header)
 
     async def test_background_prefetch_saves_artifacts_incrementally(self):
         shell = repl.REPLShell()
@@ -102,9 +112,11 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(repl, "LLMManager") as llm_mock, \
              patch.object(repl.console, "print"):
             llm_mock.return_value.generate_cached_lessons = fake_generate_cached_lessons
+            shell._mark_prefetch_started("1/2")
             await shell._background_prefetch("Topic One", ["Step 2"], record.id)
 
         self.assertIsNotNone(state.load_lesson_artifact(record.id, 2))
+        self.assertEqual(shell.state.prefetch.status, "complete")
 
     async def test_next_shows_wait_message_when_prefetch_step_not_ready(self):
         shell = repl.REPLShell()
@@ -120,6 +132,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         loop = asyncio.get_running_loop()
         shell.prefetch_task = loop.create_future()
+        shell._mark_prefetch_started("1/2")
 
         with patch.object(repl.console, "print") as print_mock, \
              patch.object(repl, "execute_next", AsyncMock()) as execute_next_mock:
@@ -149,6 +162,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         loop = asyncio.get_running_loop()
         shell.prefetch_task = loop.create_task(asyncio.sleep(1))
+        shell._mark_prefetch_started("1/2")
         loop.create_task(save_later())
 
         with patch.object(repl, "execute_next", AsyncMock()) as execute_next_mock, \
@@ -157,6 +171,35 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         execute_next_mock.assert_awaited_once_with(io=shell.io)
         print_mock.assert_not_called()
+
+    def test_refresh_view_state_loads_active_topic_snapshot(self):
+        shell = repl.REPLShell()
+        record = state.initialize_cached_topic(
+            "Topic One",
+            ["Step 1", "Step 2"],
+            [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
+        )
+        record.current_lesson_index = 1
+        state.save_syllabus_record(record)
+
+        shell._refresh_view_state()
+
+        self.assertIsNotNone(shell.state.active_topic)
+        self.assertEqual(shell.state.active_topic.topic, "Topic One")
+        self.assertEqual(shell.state.active_topic.current_lesson_index, 1)
+
+    def test_toolbar_uses_prefetch_view_state_suffix(self):
+        shell = repl.REPLShell()
+        state.initialize_cached_topic(
+            "Topic One",
+            ["Step 1"],
+            [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
+        )
+        shell._mark_prefetch_started("1/1")
+
+        toolbar = shell._get_toolbar()
+
+        self.assertIn("Caching", str(toolbar))
 
 
 if __name__ == "__main__":
