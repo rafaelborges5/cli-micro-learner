@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from typing import Literal
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import HTML, ANSI
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
@@ -12,9 +13,12 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from micro_learner.llm import LLMManager
 from micro_learner.logic import TerminalIO, execute_next, execute_resume, execute_start, execute_status
 from micro_learner.state import (
+    activate_syllabus,
+    is_syllabus_resumable,
     load_lesson_artifact,
     load_active_syllabus,
     load_syllabus_record,
+    list_syllabus_records,
     mark_syllabus_cache_complete,
     save_lesson_artifact,
 )
@@ -23,6 +27,39 @@ from micro_learner.ui import console, render_progress, render_toolbar
 
 class REPLIO(TerminalIO):
     """REPL IO uses the standard terminal output path."""
+
+
+class REPLCompleter(Completer):
+    def __init__(self, command_names: list[str], shell: "REPLShell"):
+        self.command_names = sorted(command_names)
+        self.shell = shell
+
+    def get_completions(self, document: Document, complete_event):
+        text = document.text_before_cursor
+
+        if not text.startswith("/"):
+            return
+
+        stripped = text.lstrip()
+        if " " not in stripped:
+            prefix = stripped.lower()
+            for command in self.command_names:
+                if command.lower().startswith(prefix):
+                    yield Completion(command, start_position=-len(stripped))
+            return
+
+        command, _, topic_fragment = stripped.partition(" ")
+        if command not in {"/start", "/resume"}:
+            return
+
+        fragment = topic_fragment.lstrip()
+        leading_space_count = len(topic_fragment) - len(fragment)
+        topic_start_position = -(len(fragment) + leading_space_count)
+
+        for topic in self.shell.get_completion_topics(command):
+            if fragment and not topic.lower().startswith(fragment.lower()):
+                continue
+            yield Completion(topic, start_position=topic_start_position)
 
 
 @dataclass
@@ -43,11 +80,17 @@ class PrefetchViewState:
 class REPLSessionState:
     active_topic: ActiveTopicView | None = None
     prefetch: PrefetchViewState = None
+    completion_topics: list[str] = None
+    resume_topics: list[str] = None
     show_context_header: bool = True
 
     def __post_init__(self):
         if self.prefetch is None:
             self.prefetch = PrefetchViewState()
+        if self.completion_topics is None:
+            self.completion_topics = []
+        if self.resume_topics is None:
+            self.resume_topics = []
 
 
 class REPLShell:
@@ -61,7 +104,7 @@ class REPLShell:
             "/start": self.cmd_start,
             "/next": self.cmd_next,
         }
-        self.completer = WordCompleter(list(self.commands.keys()), ignore_case=True)
+        self.completer = REPLCompleter(list(self.commands.keys()), self)
         self.history = InMemoryHistory()
         self.session = PromptSession(completer=self.completer, history=self.history)
         self.prefetch_task = None
@@ -69,19 +112,57 @@ class REPLShell:
         self.io = REPLIO()
         self._refresh_view_state()
 
+    def _build_completion_topics(self) -> tuple[list[str], list[str]]:
+        """Build deduplicated completion topic lists ordered by syllabus recency."""
+        records = list_syllabus_records()
+        active_topic = self.state.active_topic.topic if self.state.active_topic else None
+        seen_topics: set[str] = set()
+        completion_topics: list[str] = []
+        resume_topics: list[str] = []
+        deferred_active_topic: str | None = None
+
+        for record in records:
+            if record.topic in seen_topics:
+                continue
+            seen_topics.add(record.topic)
+            completion_topics.append(record.topic)
+
+            if not is_syllabus_resumable(record):
+                continue
+            if record.topic == active_topic and deferred_active_topic is None:
+                deferred_active_topic = record.topic
+                continue
+            resume_topics.append(record.topic)
+
+        if deferred_active_topic:
+            resume_topics.append(deferred_active_topic)
+
+        return completion_topics, resume_topics
+
     def _refresh_view_state(self):
         """Refresh the derived REPL view state from persisted data."""
         active = load_active_syllabus()
         if not active:
             self.state.active_topic = None
-            return
+        else:
+            self.state.active_topic = ActiveTopicView(
+                topic=active.topic,
+                current_lesson_index=active.current_lesson_index,
+                total_lessons=active.total_lessons,
+                syllabus_id=active.id,
+            )
+        completion_topics, resume_topics = self._build_completion_topics()
+        self.state.completion_topics = completion_topics
+        self.state.resume_topics = resume_topics
 
-        self.state.active_topic = ActiveTopicView(
-            topic=active.topic,
-            current_lesson_index=active.current_lesson_index,
-            total_lessons=active.total_lessons,
-            syllabus_id=active.id,
-        )
+    def get_completion_topics(self, command: str) -> list[str]:
+        """Return topic completion candidates for a given command."""
+        self._refresh_view_state()
+        if command == "/resume":
+            return self.state.resume_topics
+        if command == "/start":
+            return self.state.completion_topics
+        return []
 
     def _suppress_next_context_header(self):
         """Skip the extra context header after commands that already rendered output."""
@@ -152,6 +233,28 @@ class REPLShell:
 
     async def cmd_resume(self, *args):
         """Resumes a syllabus."""
+        if args:
+            topic = " ".join(args).strip()
+            for record in list_syllabus_records():
+                if record.topic.lower() != topic.lower():
+                    continue
+                if not is_syllabus_resumable(record):
+                    console.print("[error]That syllabus cannot be resumed because its cache is incomplete or missing.[/error]")
+                    self._refresh_view_state()
+                    self._suppress_next_context_header()
+                    return
+                activate_syllabus(record.id)
+                console.print(f"[success]Resumed topic:[/success] [topic]{record.topic}[/topic]")
+                execute_status(io=self.io)
+                self._refresh_view_state()
+                self._suppress_next_context_header()
+                return
+
+            console.print(f"[error]No saved topic matches:[/error] [topic]{topic}[/topic]")
+            self._refresh_view_state()
+            self._suppress_next_context_header()
+            return
+
         await execute_resume(io=self.io)
         self._refresh_view_state()
         self._suppress_next_context_header()
