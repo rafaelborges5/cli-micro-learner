@@ -7,7 +7,15 @@ from unittest.mock import AsyncMock, patch
 from prompt_toolkit.document import Document
 
 from micro_learner import repl, state
-from micro_learner.ui import render_toolbar
+from micro_learner.ui import (
+    THEMES,
+    build_prompt_message,
+    build_prompt_style,
+    get_current_theme,
+    render_toolbar,
+    resolve_theme_name,
+    set_current_theme,
+)
 
 
 def configure_state_paths(base_dir: Path):
@@ -16,6 +24,7 @@ def configure_state_paths(base_dir: Path):
     state.LESSONS_DIR = state.APP_DIR / "lessons"
     state.NOTES_DIR = state.APP_DIR / "notes"
     state.STATE_FILE = state.APP_DIR / "state.json"
+    state.SETTINGS_FILE = state.APP_DIR / "settings.json"
 
 
 class REPLShellTests(unittest.IsolatedAsyncioTestCase):
@@ -23,6 +32,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         configure_state_paths(Path(self.temp_dir.name))
         state.bootstrap()
+        set_current_theme("Modern")
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -33,6 +43,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(shell.state.show_context_header)
         self.assertEqual(shell.state.prefetch.status, "idle")
         self.assertEqual(shell.state.pending_toasts, [])
+        self.assertEqual(shell.state.theme_name, "Modern")
 
     def test_toolbar_shows_no_active_topic_message(self):
         shell = repl.REPLShell()
@@ -46,6 +57,50 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         completions = list(shell.completer.get_completions(Document("/st"), None))
 
         self.assertEqual([completion.text for completion in completions], ["/start", "/status"])
+
+    def test_theme_name_resolution_is_case_insensitive(self):
+        self.assertEqual(resolve_theme_name("matrix"), "Matrix")
+        self.assertIsNone(resolve_theme_name("unknown"))
+
+    def test_prompt_message_uses_current_theme_colors(self):
+        state.save_settings(state.AppSettings(theme_name="Matrix"))
+        shell = repl.REPLShell()
+
+        prompt_message = build_prompt_message(shell.state.theme_name)
+
+        self.assertIn('color="#00ff66"', prompt_message)
+        self.assertIn('color="#99ff99"', prompt_message)
+
+    def test_prompt_style_contains_modal_rules_for_active_theme(self):
+        state.save_settings(state.AppSettings(theme_name="Classic"))
+        shell = repl.REPLShell()
+
+        prompt_style = build_prompt_style(shell.state.theme_name)
+
+        self.assertIn(("dialog", "bg:#3b2f2f #efe6d1"), prompt_style.style_rules)
+        self.assertEqual(get_current_theme().name, "Classic")
+
+    def test_theme_registry_exposes_expected_semantic_styles(self):
+        required_tokens = {"info", "warning", "error", "success", "header", "topic", "quiz_answer"}
+
+        self.assertTrue(required_tokens.issubset(THEMES["Modern"].rich_styles))
+        self.assertTrue(required_tokens.issubset(THEMES["Classic"].rich_styles))
+        self.assertTrue(required_tokens.issubset(THEMES["Matrix"].rich_styles))
+
+    def test_themes_render_distinct_toolbar_styles(self):
+        set_current_theme("Modern")
+        modern_toolbar = render_toolbar(1, 4, "Topic One", suffix="[Cache Ready]", suffix_style="success")
+
+        set_current_theme("Classic")
+        classic_toolbar = render_toolbar(1, 4, "Topic One", suffix="[Cache Ready]", suffix_style="success")
+
+        set_current_theme("Matrix")
+        matrix_toolbar = render_toolbar(1, 4, "Topic One", suffix="[Cache Ready]", suffix_style="success")
+
+        self.assertNotEqual(modern_toolbar, classic_toolbar)
+        self.assertNotEqual(classic_toolbar, matrix_toolbar)
+        self.assertIn("■", classic_toolbar)
+        self.assertIn("▓", matrix_toolbar)
 
     def test_start_completion_suggests_deduplicated_topics_by_recency(self):
         shell = repl.REPLShell()
@@ -228,6 +283,34 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         execute_status_mock.assert_called_once_with(io=shell.io)
         self.assertFalse(shell.state.show_context_header)
+
+    async def test_theme_without_args_shows_current_theme(self):
+        shell = repl.REPLShell()
+
+        with patch.object(repl.console, "print") as print_mock:
+            await shell.cmd_theme()
+
+        print_mock.assert_called_once()
+        self.assertFalse(shell.state.show_context_header)
+
+    async def test_theme_command_applies_and_persists_theme(self):
+        shell = repl.REPLShell()
+
+        with patch.object(repl.console, "print") as print_mock:
+            await shell.cmd_theme("matrix")
+
+        print_mock.assert_called_once()
+        self.assertEqual(shell.state.theme_name, "Matrix")
+        self.assertEqual(state.load_settings().theme_name, "Matrix")
+
+    async def test_theme_command_rejects_invalid_name(self):
+        shell = repl.REPLShell()
+
+        with patch.object(repl.console, "print") as print_mock:
+            await shell.cmd_theme("neon")
+
+        print_mock.assert_called_once()
+        self.assertEqual(shell.state.theme_name, "Modern")
 
     def test_consume_context_header_flag_resets_to_default(self):
         shell = repl.REPLShell()
