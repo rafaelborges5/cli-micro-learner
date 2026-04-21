@@ -32,6 +32,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(shell.state.active_topic)
         self.assertTrue(shell.state.show_context_header)
         self.assertEqual(shell.state.prefetch.status, "idle")
+        self.assertEqual(shell.state.pending_toasts, [])
 
     def test_toolbar_shows_no_active_topic_message(self):
         shell = repl.REPLShell()
@@ -186,6 +187,25 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(shell._consume_context_header_flag())
         self.assertTrue(shell.state.show_context_header)
 
+    def test_toast_queue_is_consumed_once(self):
+        shell = repl.REPLShell()
+        shell._enqueue_toast("Saved", "success")
+
+        toast = shell._consume_next_toast()
+
+        self.assertIsNotNone(toast)
+        self.assertEqual(toast.message, "Saved")
+        self.assertIsNone(shell._consume_next_toast())
+
+    def test_render_toast_prints_styled_message(self):
+        shell = repl.REPLShell()
+        toast = repl.REPLToast(message="Warmup complete", style="success")
+
+        with patch.object(repl.console, "print") as print_mock:
+            shell._render_toast(toast)
+
+        print_mock.assert_called_once()
+
     async def test_background_prefetch_saves_artifacts_incrementally(self):
         shell = repl.REPLShell()
         record = state.create_syllabus_record("Topic One", ["Step 1", "Step 2"])
@@ -208,6 +228,21 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(state.load_lesson_artifact(record.id, 2))
         self.assertEqual(shell.state.prefetch.status, "complete")
+        self.assertEqual(shell.state.pending_toasts[0].message, "Background cache warmup complete.")
+
+    async def test_background_prefetch_failure_enqueues_error_toast(self):
+        shell = repl.REPLShell()
+        record = state.create_syllabus_record("Topic One", ["Step 1", "Step 2"])
+
+        async def fake_generate_cached_lessons(*args, **kwargs):
+            raise RuntimeError("boom")
+
+        with patch.object(repl, "LLMManager") as llm_mock:
+            llm_mock.return_value.generate_cached_lessons = fake_generate_cached_lessons
+            await shell._background_prefetch("Topic One", ["Step 2"], record.id)
+
+        self.assertEqual(shell.state.prefetch.status, "failed")
+        self.assertEqual(shell.state.pending_toasts[0].message, "Background cache warmup failed.")
 
     async def test_resume_with_topic_argument_activates_matching_topic(self):
         shell = repl.REPLShell()
@@ -241,6 +276,30 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
             await shell.cmd_resume("missing")
 
         print_mock.assert_called()
+
+    async def test_next_enqueues_note_export_success_toast(self):
+        shell = repl.REPLShell()
+
+        with patch.object(
+            repl,
+            "execute_next",
+            AsyncMock(return_value=repl.ExecuteNextResult(note_exported=True, note_export_path="/tmp/note.md")),
+        ):
+            await shell.cmd_next()
+
+        self.assertEqual(shell.state.pending_toasts[0].message, "Lesson note exported.")
+
+    async def test_next_enqueues_note_export_failure_toast(self):
+        shell = repl.REPLShell()
+
+        with patch.object(
+            repl,
+            "execute_next",
+            AsyncMock(return_value=repl.ExecuteNextResult(note_export_error="disk full")),
+        ):
+            await shell.cmd_next()
+
+        self.assertEqual(shell.state.pending_toasts[0].message, "Lesson note export failed: disk full")
 
     async def test_next_shows_wait_message_when_prefetch_step_not_ready(self):
         shell = repl.REPLShell()
