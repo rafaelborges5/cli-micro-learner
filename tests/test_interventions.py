@@ -14,6 +14,7 @@ def configure_state_paths(base_dir: Path):
     state.LESSONS_DIR = state.APP_DIR / "lessons"
     state.NOTES_DIR = state.APP_DIR / "notes"
     state.STATE_FILE = state.APP_DIR / "state.json"
+    state.SETTINGS_FILE = state.APP_DIR / "settings.json"
 
 
 class InterventionsTests(unittest.TestCase):

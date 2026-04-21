@@ -12,6 +12,7 @@ def configure_state_paths(base_dir: Path):
     state.LESSONS_DIR = state.APP_DIR / "lessons"
     state.NOTES_DIR = state.APP_DIR / "notes"
     state.STATE_FILE = state.APP_DIR / "state.json"
+    state.SETTINGS_FILE = state.APP_DIR / "settings.json"
 
 
 class StatePersistenceTests(unittest.TestCase):
@@ -29,7 +30,9 @@ class StatePersistenceTests(unittest.TestCase):
         self.assertTrue(state.LESSONS_DIR.exists())
         self.assertTrue(state.NOTES_DIR.exists())
         self.assertTrue(state.STATE_FILE.exists())
+        self.assertTrue(state.SETTINGS_FILE.exists())
         self.assertEqual(state.load_state().active_syllabus_id, None)
+        self.assertEqual(state.load_settings().theme_name, "Modern")
 
     def test_initialize_cached_topic_creates_record_cache_and_active_pointer(self):
         record = state.initialize_cached_topic(
@@ -114,6 +117,20 @@ class StatePersistenceTests(unittest.TestCase):
         state.bootstrap()
 
         self.assertEqual(state.load_state().active_syllabus_id, None)
+
+    def test_load_settings_returns_saved_theme(self):
+        state.save_settings(state.AppSettings(theme_name="Matrix"))
+
+        loaded = state.load_settings()
+
+        self.assertEqual(loaded.theme_name, "Matrix")
+
+    def test_bootstrap_resets_invalid_settings_format_to_default(self):
+        state.SETTINGS_FILE.write_text(json.dumps({"theme": "broken"}), encoding="utf-8")
+
+        state.bootstrap()
+
+        self.assertEqual(state.load_settings().theme_name, "Modern")
 
     def test_get_note_path_slugifies_topic_name(self):
         path = state.get_note_path("Advanced Rust Traits!!!")
