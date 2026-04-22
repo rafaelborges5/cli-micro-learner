@@ -244,6 +244,32 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("\x1b", toolbar)
         self.assertNotIn("\n", toolbar)
+        self.assertIn("[9/15]", toolbar)
+
+    def test_toolbar_preserves_topic_before_suffix_when_width_is_limited(self):
+        toolbar = render_toolbar(
+            9,
+            15,
+            "Topic One",
+            suffix="[Caching 12/15]",
+            max_width=38,
+        )
+
+        self.assertIn("[9/15]", toolbar)
+        self.assertIn("Topic One", toolbar)
+        self.assertNotIn("[Caching 12/15]", toolbar)
+
+    def test_toolbar_drops_topic_before_progress_when_width_is_tight(self):
+        toolbar = render_toolbar(
+            9,
+            15,
+            "A very long topic name",
+            suffix="[Cache Ready]",
+            max_width=30,
+        )
+
+        self.assertIn("[9/15]", toolbar)
+        self.assertNotIn("[Cache Ready]", toolbar)
 
     def test_context_header_without_active_topic_prints_hint(self):
         shell = repl.REPLShell()
