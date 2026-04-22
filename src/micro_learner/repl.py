@@ -7,7 +7,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.application import Application
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
-from prompt_toolkit.formatted_text import HTML, ANSI
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
@@ -44,6 +44,7 @@ from micro_learner.ui import (
     get_current_theme,
     render_progress,
     render_toolbar,
+    render_toolbar_formatted_text,
     resolve_theme_name,
     set_current_theme,
 )
@@ -599,19 +600,17 @@ class REPLShell:
         self._refresh_view_state()
         active = self.state.active_topic
         if not active:
-            return ANSI("\x1b[36m [No active topic] Type /start to begin\x1b[0m")
+            return render_toolbar_formatted_text(0, 0, "No active topic", suffix="Type /start to begin", suffix_style="info")
 
         suffix, suffix_style = self._toolbar_suffix()
 
-        toolbar_ansi = render_toolbar(
+        return render_toolbar_formatted_text(
             active.current_lesson_index,
             active.total_lessons,
             active.topic,
             suffix=suffix,
             suffix_style=suffix_style,
         )
-
-        return ANSI(toolbar_ansi)
 
     def _print_context_header(self):
         """Print a compact context snapshot above the next prompt."""

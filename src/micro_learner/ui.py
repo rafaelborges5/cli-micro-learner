@@ -10,6 +10,7 @@ from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, T
 from rich.progress_bar import ProgressBar
 from rich.text import Text
 from rich.align import Align
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.styles import Style
 
 
@@ -45,19 +46,20 @@ THEMES: dict[str, UITheme] = {
             "quiz_answer": "bold #ecfeff on #0f766e",
             "panel_surface": "#dbeafe on #0f172a",
             "answer_surface": "#ecfeff on #064e3b",
-            "toolbar_back": "#e0f2fe on #0f172a",
-            "toolbar_box": "#7dd3fc on #0f172a",
-            "toolbar_topic": "bold #bfdbfe on #0f172a",
-            "toolbar_suffix_success": "bold #6ee7b7 on #0f172a",
-            "toolbar_suffix_warning": "bold #fcd34d on #0f172a",
-            "toolbar_suffix_error": "bold #fda4af on #0f172a",
-            "toolbar_suffix_info": "bold #a5f3fc on #0f172a",
+            "toolbar_back": "#94a3b8 on #000000",
+            "toolbar_box": "#38bdf8 on #000000",
+            "toolbar_topic": "bold #e2e8f0 on #000000",
+            "toolbar_suffix_success": "bold #86efac on #000000",
+            "toolbar_suffix_warning": "bold #fbbf24 on #000000",
+            "toolbar_suffix_error": "bold #fda4af on #000000",
+            "toolbar_suffix_info": "bold #7dd3fc on #000000",
         },
         prompt_toolkit_styles={
             "dialog": "bg:#111827 #d1d5db",
             "dialog.body": "bg:#111827 #d1d5db",
             "dialog frame.label": "bold #f472b6",
             "dialog shadow": "bg:#030712",
+            "bottom-toolbar": "noreverse bg:#3a3a3a #94a3b8",
             "label": "#93c5fd",
             "radio": "#93c5fd",
             "radio-selected": "bold #34d399",
@@ -103,19 +105,20 @@ THEMES: dict[str, UITheme] = {
             "quiz_answer": "bold #2f1b0c on #efe6d1",
             "panel_surface": "#efe6d1 on #3b2f2f",
             "answer_surface": "#fdf6e3 on #5b3a29",
-            "toolbar_back": "#efe6d1 on #2b1f1a",
-            "toolbar_box": "#c8a97e on #2b1f1a",
-            "toolbar_topic": "bold #b8e1ff on #2b1f1a",
-            "toolbar_suffix_success": "bold #7bd389 on #2b1f1a",
-            "toolbar_suffix_warning": "bold #f4d35e on #2b1f1a",
-            "toolbar_suffix_error": "bold #ff6b6b on #2b1f1a",
-            "toolbar_suffix_info": "bold #f3e9d2 on #2b1f1a",
+            "toolbar_back": "#c7b39a on #000000",
+            "toolbar_box": "#a16207 on #000000",
+            "toolbar_topic": "bold #f3f4f6 on #000000",
+            "toolbar_suffix_success": "bold #7bd389 on #000000",
+            "toolbar_suffix_warning": "bold #f4d35e on #000000",
+            "toolbar_suffix_error": "bold #ff8b8b on #000000",
+            "toolbar_suffix_info": "bold #d6d3d1 on #000000",
         },
         prompt_toolkit_styles={
             "dialog": "bg:#3b2f2f #efe6d1",
             "dialog.body": "bg:#3b2f2f #efe6d1",
             "dialog frame.label": "bold #f8f4e3",
             "dialog shadow": "bg:#1f1613",
+            "bottom-toolbar": "noreverse bg:#3a3a3a #c7b39a",
             "label": "#d8c3a5",
             "radio": "#d8c3a5",
             "radio-selected": "bold #f8f4e3 bg:#5b3a29",
@@ -161,19 +164,20 @@ THEMES: dict[str, UITheme] = {
             "quiz_answer": "bold #001100 on #86efac",
             "panel_surface": "#86efac on #001100",
             "answer_surface": "#bbf7d0 on #052e16",
-            "toolbar_back": "#86efac on #001100",
-            "toolbar_box": "#14532d on #001100",
-            "toolbar_topic": "bold #bbf7d0 on #001100",
-            "toolbar_suffix_success": "bold #86efac on #001100",
-            "toolbar_suffix_warning": "bold #dcfce7 on #001100",
-            "toolbar_suffix_error": "bold #fda4af on #001100",
-            "toolbar_suffix_info": "bold #4ade80 on #001100",
+            "toolbar_back": "#4ade80 on #000000",
+            "toolbar_box": "#166534 on #000000",
+            "toolbar_topic": "bold #dcfce7 on #000000",
+            "toolbar_suffix_success": "bold #86efac on #000000",
+            "toolbar_suffix_warning": "bold #dcfce7 on #000000",
+            "toolbar_suffix_error": "bold #fda4af on #000000",
+            "toolbar_suffix_info": "bold #4ade80 on #000000",
         },
         prompt_toolkit_styles={
             "dialog": "bg:#001100 #66ff66",
             "dialog.body": "bg:#001100 #66ff66",
             "dialog frame.label": "bold #99ff99",
             "dialog shadow": "bg:#000600",
+            "bottom-toolbar": "noreverse bg:#3a3a3a #4ade80",
             "label": "#66ff66",
             "radio": "#66ff66",
             "radio-selected": "bold #ccffcc",
@@ -375,6 +379,7 @@ def render_to_ansi(renderable) -> str:
         ansi_console = Console(
             file=buf,
             force_terminal=True,
+            color_system="truecolor",
             theme=Theme(get_current_theme().rich_styles),
             width=console.width,
         )
@@ -404,7 +409,15 @@ def render_toolbar(
     suffix_style: str = "warning",
     max_width: int | None = None,
 ) -> str:
-    """Renders a single-line version of the progress bar for the REPL toolbar."""
+    """Render the REPL toolbar with explicit signal priority.
+
+    Priority order is:
+    1. progress bar + current/total
+    2. topic name
+    3. transient suffix state
+    Percentage is optional progress metadata and is dropped before topic/suffix
+    when width is constrained.
+    """
     percentage = (current / total) * 100 if total > 0 else 0
     theme = get_current_theme()
 
@@ -412,26 +425,192 @@ def render_toolbar(
     filled = 0 if total <= 0 else min(bar_width, round((current / total) * bar_width))
     empty = bar_width - filled
     progress_bar = theme.toolbar_fill_char * filled + theme.toolbar_empty_char * empty
+    count_label = f"[{current}/{total}]"
+    percentage_label = f"{percentage:>3.0f}%"
+    available_width = max_width or console.width
+    minimum_topic_width = 6
 
-    toolbar_text = Text()
-    toolbar_text.append(" ", style=theme.toolbar_background_style)
-    toolbar_text.append(f"{percentage:>3.0f}%", style="success")
-    toolbar_text.append(" ", style=theme.toolbar_background_style)
-    toolbar_text.append(progress_bar, style=theme.toolbar_box_style)
-    toolbar_text.append(" [", style=theme.toolbar_background_style)
-    toolbar_text.append(f"{current}/{total}", style="success")
-    toolbar_text.append("] ", style=theme.toolbar_background_style)
-    toolbar_text.append(topic_name, style=theme.toolbar_topic_style)
+    def parse_style(style_name: str) -> tuple[str | None, str | None, bool]:
+        style_spec = theme.rich_styles.get(style_name, "")
+        bold = "bold" in style_spec.split()
+        fg = None
+        bg = None
+        if " on " in style_spec:
+            left, bg = style_spec.split(" on ", 1)
+            tokens = left.split()
+        else:
+            tokens = style_spec.split()
+        for token in tokens:
+            if token != "bold":
+                fg = token
+                break
+        return fg, bg, bold
 
-    if suffix:
-        toolbar_text.append(" ", style=theme.toolbar_background_style)
-        toolbar_text.append(
-            suffix,
-            style=theme.toolbar_suffix_styles.get(suffix_style, theme.toolbar_background_style),
-        )
-    else:
-        toolbar_text.append(" ", style=theme.toolbar_background_style)
+    def style_ansi(text: str, *, fg: str | None = None, bg: str | None = None, bold: bool = False) -> str:
+        codes: list[str] = []
+        if bold:
+            codes.append("1")
+        if fg and fg.startswith("#") and len(fg) == 7:
+            r, g, b = int(fg[1:3], 16), int(fg[3:5], 16), int(fg[5:7], 16)
+            codes.append(f"38;2;{r};{g};{b}")
+        if bg and bg.startswith("#") and len(bg) == 7:
+            r, g, b = int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)
+            codes.append(f"48;2;{r};{g};{b}")
+        if not codes:
+            return text
+        return f"\x1b[{';'.join(codes)}m{text}\x1b[0m"
 
-    toolbar_text.truncate(max_width or console.width, overflow="ellipsis")
+    toolbar_fg, toolbar_bg, _ = parse_style(theme.toolbar_background_style)
+    box_fg, box_bg, box_bold = parse_style(theme.toolbar_box_style)
+    topic_fg, _, topic_bold = parse_style(theme.toolbar_topic_style)
+    success_fg, _, success_bold = parse_style("success")
+    success_bg = toolbar_bg
 
-    return render_to_ansi(toolbar_text)
+    def build_toolbar_text(
+        *,
+        include_percentage: bool,
+        topic_segment: str = "",
+        suffix_segment: str = "",
+    ) -> str:
+        toolbar = ""
+        toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+        toolbar += style_ansi(progress_bar, fg=box_fg, bg=box_bg or toolbar_bg, bold=box_bold)
+        toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+        toolbar += style_ansi(count_label, fg=success_fg, bg=success_bg, bold=success_bold)
+        if include_percentage:
+            toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+            toolbar += style_ansi(percentage_label, fg=success_fg, bg=success_bg, bold=success_bold)
+        if topic_segment:
+            toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+            toolbar += style_ansi(topic_segment, fg=topic_fg, bg=toolbar_bg, bold=topic_bold)
+        if suffix_segment:
+            suffix_style_name = theme.toolbar_suffix_styles.get(suffix_style, theme.toolbar_background_style)
+            suffix_fg, _, suffix_bold = parse_style(suffix_style_name)
+            toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+            toolbar += style_ansi(suffix_segment, fg=suffix_fg, bg=toolbar_bg, bold=suffix_bold)
+        return toolbar
+
+    base_toolbar = build_toolbar_text(include_percentage=False)
+    base_toolbar_text = Text.from_ansi(base_toolbar)
+    remaining_width = max(0, available_width - base_toolbar_text.cell_len)
+
+    topic_segment = ""
+    if topic_name and remaining_width >= minimum_topic_width + 1:
+        topic_budget = remaining_width - 1
+        topic_text = Text(topic_name)
+        topic_text.truncate(topic_budget, overflow="ellipsis")
+        topic_segment = topic_text.plain
+        remaining_width = max(0, remaining_width - (1 + len(topic_segment)))
+
+    suffix_segment = ""
+    if suffix and remaining_width >= len(suffix) + 1:
+        suffix_segment = suffix
+        remaining_width -= 1 + len(suffix_segment)
+
+    include_percentage = remaining_width >= len(percentage_label) + 1
+    toolbar_text = build_toolbar_text(
+        include_percentage=include_percentage,
+        topic_segment=topic_segment,
+        suffix_segment=suffix_segment,
+    )
+    final_width = max(available_width, Text.from_ansi(toolbar_text).cell_len)
+    current_width = Text.from_ansi(toolbar_text).cell_len
+    if current_width < final_width:
+        toolbar_text += style_ansi(" " * (final_width - current_width), fg=toolbar_fg, bg=toolbar_bg)
+    return toolbar_text
+
+
+def render_toolbar_formatted_text(
+    current: int,
+    total: int,
+    topic_name: str,
+    *,
+    suffix: str = "",
+    suffix_style: str = "warning",
+    max_width: int | None = None,
+) -> FormattedText:
+    """Render toolbar content as prompt-toolkit formatted text.
+
+    This path is used by the live REPL footer because prompt-toolkit applies its
+    own footer styling more reliably than ANSI-wrapped content in some terminals.
+    """
+    percentage = (current / total) * 100 if total > 0 else 0
+    theme = get_current_theme()
+    available_width = max_width or console.width
+    minimum_topic_width = 6
+    footer_bg = "#3a3a3a"
+
+    def parse_style(style_name: str) -> tuple[str | None, bool]:
+        style_spec = theme.rich_styles.get(style_name, "")
+        tokens = style_spec.split()
+        bold = "bold" in tokens
+        fg = None
+        for token in tokens:
+            if token != "bold" and token != "on":
+                if token.startswith("#"):
+                    fg = token
+                    break
+        return fg, bold
+
+    def style_fragment(style_name: str, *, force_bg: str | None = footer_bg) -> str:
+        fg, bold = parse_style(style_name)
+        style_parts: list[str] = ["noreverse"]
+        if bold:
+            style_parts.append("bold")
+        if fg:
+            style_parts.append(fg)
+        if force_bg:
+            style_parts.append(f"bg:{force_bg}")
+        return " ".join(style_parts)
+
+    bar_width = 20
+    filled = 0 if total <= 0 else min(bar_width, round((current / total) * bar_width))
+    empty = bar_width - filled
+    progress_bar = theme.toolbar_fill_char * filled + theme.toolbar_empty_char * empty
+    count_label = f"[{current}/{total}]"
+    percentage_label = f"{percentage:>3.0f}%"
+
+    base_width = len(progress_bar) + 1 + len(count_label)
+    remaining_width = max(0, available_width - base_width - 1)
+
+    topic_segment = ""
+    if topic_name and remaining_width >= minimum_topic_width + 1:
+        topic_budget = remaining_width - 1
+        topic_text = Text(topic_name)
+        topic_text.truncate(topic_budget, overflow="ellipsis")
+        topic_segment = topic_text.plain
+        remaining_width = max(0, remaining_width - (1 + len(topic_segment)))
+
+    suffix_segment = ""
+    if suffix and remaining_width >= len(suffix) + 1:
+        suffix_segment = suffix
+        remaining_width -= 1 + len(suffix_segment)
+
+    include_percentage = remaining_width >= len(percentage_label) + 1
+
+    fragments: list[tuple[str, str]] = []
+    base_style = style_fragment(theme.toolbar_background_style)
+    box_style = style_fragment(theme.toolbar_box_style)
+    success_style = style_fragment("success")
+    topic_style = style_fragment(theme.toolbar_topic_style)
+    suffix_style_spec = style_fragment(theme.toolbar_suffix_styles.get(suffix_style, theme.toolbar_background_style))
+
+    fragments.append((base_style, " "))
+    fragments.append((box_style, progress_bar))
+    fragments.append((base_style, " "))
+    fragments.append((success_style, count_label))
+    if include_percentage:
+        fragments.append((base_style, " "))
+        fragments.append((success_style, percentage_label))
+    if topic_segment:
+        fragments.append((base_style, " "))
+        fragments.append((topic_style, topic_segment))
+    if suffix_segment:
+        fragments.append((base_style, " "))
+        fragments.append((suffix_style_spec, suffix_segment))
+
+    plain_width = sum(len(text) for _, text in fragments)
+    if plain_width < available_width:
+        fragments.append((base_style, " " * (available_width - plain_width)))
+
+    return FormattedText(fragments)
