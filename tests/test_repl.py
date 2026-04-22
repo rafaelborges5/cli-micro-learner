@@ -9,10 +9,13 @@ from prompt_toolkit.document import Document
 from micro_learner import repl, state
 from micro_learner.ui import (
     THEMES,
+    _compute_toolbar_segments,
     build_prompt_message,
     build_prompt_style,
     get_current_theme,
+    get_theme,
     render_toolbar,
+    render_toolbar_formatted_text,
     resolve_theme_name,
     set_current_theme,
 )
@@ -270,6 +273,71 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("[9/15]", toolbar)
         self.assertNotIn("[Cache Ready]", toolbar)
+
+    # --- _compute_toolbar_segments unit tests ---
+
+    def test_segments_includes_all_at_wide_terminal(self):
+        theme = get_theme("Modern")
+        seg = _compute_toolbar_segments(9, 15, "My Topic", "[Cache Ready]", 100, theme)
+        self.assertEqual(seg.topic_segment, "My Topic")
+        self.assertEqual(seg.suffix_segment, "[Cache Ready]")
+        self.assertTrue(seg.include_percentage)
+
+    def test_segments_drops_suffix_before_topic_at_medium_width(self):
+        theme = get_theme("Modern")
+        seg = _compute_toolbar_segments(9, 15, "Topic One", "[Caching 12/15]", 38, theme)
+        self.assertEqual(seg.topic_segment, "Topic One")
+        self.assertEqual(seg.suffix_segment, "")
+
+    def test_segments_count_label_always_present(self):
+        theme = get_theme("Modern")
+        seg = _compute_toolbar_segments(9, 15, "A very long topic name", "[Cache Ready]", 30, theme)
+        self.assertEqual(seg.count_label, "[9/15]")
+        self.assertEqual(seg.suffix_segment, "")
+
+    def test_segments_bar_width_scales_at_wide_terminal(self):
+        theme = get_theme("Modern")
+        seg = _compute_toolbar_segments(5, 10, "Topic", "", 100, theme)
+        self.assertEqual(len(seg.progress_bar), 20)
+
+    def test_segments_bar_width_scales_at_medium_terminal(self):
+        theme = get_theme("Modern")
+        seg = _compute_toolbar_segments(5, 10, "Topic", "", 60, theme)
+        self.assertEqual(len(seg.progress_bar), 10)
+
+    def test_segments_bar_width_clamps_at_narrow_terminal(self):
+        theme = get_theme("Modern")
+        seg = _compute_toolbar_segments(5, 10, "Topic", "", 39, theme)
+        self.assertEqual(len(seg.progress_bar), 8)
+
+    def test_segments_fill_count_pads_to_available_width(self):
+        theme = get_theme("Modern")
+        seg = _compute_toolbar_segments(5, 10, "", "", 60, theme)
+        # " " + bar + " " + count + optional_pct + fill_count == 60
+        base = 1 + len(seg.progress_bar) + 1 + len(seg.count_label)
+        pct = (1 + len(seg.percentage_label)) if seg.include_percentage else 0
+        self.assertEqual(base + pct + seg.fill_count, 60)
+
+    # --- render_toolbar_formatted_text tests ---
+
+    def test_render_toolbar_formatted_text_contains_count_and_topic(self):
+        set_current_theme("Modern")
+        ft = render_toolbar_formatted_text(9, 15, "My Topic", max_width=80)
+        plain = "".join(text for _, text in ft)
+        self.assertIn("[9/15]", plain)
+        self.assertIn("My Topic", plain)
+
+    def test_render_toolbar_formatted_text_fills_to_max_width(self):
+        set_current_theme("Modern")
+        ft = render_toolbar_formatted_text(9, 15, "My Topic", max_width=80)
+        plain = "".join(text for _, text in ft)
+        self.assertEqual(len(plain), 80)
+
+    def test_render_toolbar_formatted_text_all_fragments_have_noreverse(self):
+        set_current_theme("Modern")
+        ft = render_toolbar_formatted_text(9, 15, "My Topic", max_width=80)
+        for style, _ in ft:
+            self.assertIn("noreverse", style)
 
     def test_context_header_without_active_topic_prints_hint(self):
         shell = repl.REPLShell()
