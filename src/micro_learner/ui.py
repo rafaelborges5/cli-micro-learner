@@ -306,6 +306,72 @@ def render_intervention(title: str, content: str, style: str) -> Panel:
         style=theme.intervention_panel_style.get(style, theme.lesson_panel_style),
     )
 
+@dataclass(frozen=True)
+class _ToolbarSegments:
+    progress_bar: str
+    count_label: str
+    percentage_label: str
+    topic_segment: str
+    suffix_segment: str
+    include_percentage: bool
+    fill_count: int
+
+
+def _compute_toolbar_segments(
+    current: int,
+    total: int,
+    topic_name: str,
+    suffix: str,
+    available_width: int,
+    theme: UITheme,
+) -> _ToolbarSegments:
+    """Compute all width-aware layout decisions for the toolbar.
+
+    All truncation and slot allocation lives here so both the ANSI and
+    FormattedText rendering paths share a single source of truth.
+
+    Priority: progress bar + count > topic > suffix > percentage.
+    Bar width scales with terminal width: 8 chars minimum, 20 maximum.
+    """
+    percentage = (current / total) * 100 if total > 0 else 0
+    bar_width = max(8, min(20, (available_width - 30) // 3))
+    filled = 0 if total <= 0 else min(bar_width, round((current / total) * bar_width))
+    progress_bar = theme.toolbar_fill_char * filled + theme.toolbar_empty_char * (bar_width - filled)
+    count_label = f"[{current}/{total}]"
+    percentage_label = f"{percentage:>3.0f}%"
+    minimum_topic_width = 6
+
+    # leading space + bar + space + count
+    base_width = 1 + len(progress_bar) + 1 + len(count_label)
+    remaining = max(0, available_width - base_width)
+
+    topic_segment = ""
+    if topic_name and remaining >= minimum_topic_width + 1:
+        t = Text(topic_name)
+        t.truncate(remaining - 1, overflow="ellipsis")
+        topic_segment = t.plain
+        remaining = max(0, remaining - (1 + len(topic_segment)))
+
+    suffix_segment = ""
+    if suffix and remaining >= len(suffix) + 1:
+        suffix_segment = suffix
+        remaining -= 1 + len(suffix_segment)
+
+    include_percentage = remaining >= len(percentage_label) + 1
+    if include_percentage:
+        remaining -= 1 + len(percentage_label)
+
+    return _ToolbarSegments(
+        progress_bar=progress_bar,
+        count_label=count_label,
+        percentage_label=percentage_label,
+        topic_segment=topic_segment,
+        suffix_segment=suffix_segment,
+        include_percentage=include_percentage,
+        fill_count=remaining,
+    )
+
+
 def render_progress(current: int, total: int, topic_name: str) -> Group:
     """Creates a stylized progress bar and status text."""
     percentage = (current / total) * 100 if total > 0 else 0
@@ -409,26 +475,10 @@ def render_toolbar(
     suffix_style: str = "warning",
     max_width: int | None = None,
 ) -> str:
-    """Render the REPL toolbar with explicit signal priority.
-
-    Priority order is:
-    1. progress bar + current/total
-    2. topic name
-    3. transient suffix state
-    Percentage is optional progress metadata and is dropped before topic/suffix
-    when width is constrained.
-    """
-    percentage = (current / total) * 100 if total > 0 else 0
+    """Render the REPL toolbar as an ANSI escape-code string."""
     theme = get_current_theme()
-
-    bar_width = 20
-    filled = 0 if total <= 0 else min(bar_width, round((current / total) * bar_width))
-    empty = bar_width - filled
-    progress_bar = theme.toolbar_fill_char * filled + theme.toolbar_empty_char * empty
-    count_label = f"[{current}/{total}]"
-    percentage_label = f"{percentage:>3.0f}%"
     available_width = max_width or console.width
-    minimum_topic_width = 6
+    seg = _compute_toolbar_segments(current, total, topic_name, suffix, available_width, theme)
 
     def parse_style(style_name: str) -> tuple[str | None, str | None, bool]:
         style_spec = theme.rich_styles.get(style_name, "")
@@ -464,60 +514,26 @@ def render_toolbar(
     box_fg, box_bg, box_bold = parse_style(theme.toolbar_box_style)
     topic_fg, _, topic_bold = parse_style(theme.toolbar_topic_style)
     success_fg, _, success_bold = parse_style("success")
-    success_bg = toolbar_bg
 
-    def build_toolbar_text(
-        *,
-        include_percentage: bool,
-        topic_segment: str = "",
-        suffix_segment: str = "",
-    ) -> str:
-        toolbar = ""
-        toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
-        toolbar += style_ansi(progress_bar, fg=box_fg, bg=box_bg or toolbar_bg, bold=box_bold)
-        toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
-        toolbar += style_ansi(count_label, fg=success_fg, bg=success_bg, bold=success_bold)
-        if include_percentage:
-            toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
-            toolbar += style_ansi(percentage_label, fg=success_fg, bg=success_bg, bold=success_bold)
-        if topic_segment:
-            toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
-            toolbar += style_ansi(topic_segment, fg=topic_fg, bg=toolbar_bg, bold=topic_bold)
-        if suffix_segment:
-            suffix_style_name = theme.toolbar_suffix_styles.get(suffix_style, theme.toolbar_background_style)
-            suffix_fg, _, suffix_bold = parse_style(suffix_style_name)
-            toolbar += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
-            toolbar += style_ansi(suffix_segment, fg=suffix_fg, bg=toolbar_bg, bold=suffix_bold)
-        return toolbar
-
-    base_toolbar = build_toolbar_text(include_percentage=False)
-    base_toolbar_text = Text.from_ansi(base_toolbar)
-    remaining_width = max(0, available_width - base_toolbar_text.cell_len)
-
-    topic_segment = ""
-    if topic_name and remaining_width >= minimum_topic_width + 1:
-        topic_budget = remaining_width - 1
-        topic_text = Text(topic_name)
-        topic_text.truncate(topic_budget, overflow="ellipsis")
-        topic_segment = topic_text.plain
-        remaining_width = max(0, remaining_width - (1 + len(topic_segment)))
-
-    suffix_segment = ""
-    if suffix and remaining_width >= len(suffix) + 1:
-        suffix_segment = suffix
-        remaining_width -= 1 + len(suffix_segment)
-
-    include_percentage = remaining_width >= len(percentage_label) + 1
-    toolbar_text = build_toolbar_text(
-        include_percentage=include_percentage,
-        topic_segment=topic_segment,
-        suffix_segment=suffix_segment,
-    )
-    final_width = max(available_width, Text.from_ansi(toolbar_text).cell_len)
-    current_width = Text.from_ansi(toolbar_text).cell_len
-    if current_width < final_width:
-        toolbar_text += style_ansi(" " * (final_width - current_width), fg=toolbar_fg, bg=toolbar_bg)
-    return toolbar_text
+    out = ""
+    out += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+    out += style_ansi(seg.progress_bar, fg=box_fg, bg=box_bg or toolbar_bg, bold=box_bold)
+    out += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+    out += style_ansi(seg.count_label, fg=success_fg, bg=toolbar_bg, bold=success_bold)
+    if seg.include_percentage:
+        out += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+        out += style_ansi(seg.percentage_label, fg=success_fg, bg=toolbar_bg, bold=success_bold)
+    if seg.topic_segment:
+        out += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+        out += style_ansi(seg.topic_segment, fg=topic_fg, bg=toolbar_bg, bold=topic_bold)
+    if seg.suffix_segment:
+        suffix_style_name = theme.toolbar_suffix_styles.get(suffix_style, theme.toolbar_background_style)
+        suffix_fg, _, suffix_bold = parse_style(suffix_style_name)
+        out += style_ansi(" ", fg=toolbar_fg, bg=toolbar_bg)
+        out += style_ansi(seg.suffix_segment, fg=suffix_fg, bg=toolbar_bg, bold=suffix_bold)
+    if seg.fill_count > 0:
+        out += style_ansi(" " * seg.fill_count, fg=toolbar_fg, bg=toolbar_bg)
+    return out
 
 
 def render_toolbar_formatted_text(
@@ -529,16 +545,11 @@ def render_toolbar_formatted_text(
     suffix_style: str = "warning",
     max_width: int | None = None,
 ) -> FormattedText:
-    """Render toolbar content as prompt-toolkit formatted text.
-
-    This path is used by the live REPL footer because prompt-toolkit applies its
-    own footer styling more reliably than ANSI-wrapped content in some terminals.
-    """
-    percentage = (current / total) * 100 if total > 0 else 0
+    """Render toolbar content as prompt-toolkit FormattedText for the live REPL footer."""
     theme = get_current_theme()
     available_width = max_width or console.width
-    minimum_topic_width = 6
     footer_bg = "#3a3a3a"
+    seg = _compute_toolbar_segments(current, total, topic_name, suffix, available_width, theme)
 
     def parse_style(style_name: str) -> tuple[str | None, bool]:
         style_spec = theme.rich_styles.get(style_name, "")
@@ -563,54 +574,27 @@ def render_toolbar_formatted_text(
             style_parts.append(f"bg:{force_bg}")
         return " ".join(style_parts)
 
-    bar_width = 20
-    filled = 0 if total <= 0 else min(bar_width, round((current / total) * bar_width))
-    empty = bar_width - filled
-    progress_bar = theme.toolbar_fill_char * filled + theme.toolbar_empty_char * empty
-    count_label = f"[{current}/{total}]"
-    percentage_label = f"{percentage:>3.0f}%"
-
-    base_width = len(progress_bar) + 1 + len(count_label)
-    remaining_width = max(0, available_width - base_width - 1)
-
-    topic_segment = ""
-    if topic_name and remaining_width >= minimum_topic_width + 1:
-        topic_budget = remaining_width - 1
-        topic_text = Text(topic_name)
-        topic_text.truncate(topic_budget, overflow="ellipsis")
-        topic_segment = topic_text.plain
-        remaining_width = max(0, remaining_width - (1 + len(topic_segment)))
-
-    suffix_segment = ""
-    if suffix and remaining_width >= len(suffix) + 1:
-        suffix_segment = suffix
-        remaining_width -= 1 + len(suffix_segment)
-
-    include_percentage = remaining_width >= len(percentage_label) + 1
-
-    fragments: list[tuple[str, str]] = []
     base_style = style_fragment(theme.toolbar_background_style)
     box_style = style_fragment(theme.toolbar_box_style)
     success_style = style_fragment("success")
     topic_style = style_fragment(theme.toolbar_topic_style)
     suffix_style_spec = style_fragment(theme.toolbar_suffix_styles.get(suffix_style, theme.toolbar_background_style))
 
+    fragments: list[tuple[str, str]] = []
     fragments.append((base_style, " "))
-    fragments.append((box_style, progress_bar))
+    fragments.append((box_style, seg.progress_bar))
     fragments.append((base_style, " "))
-    fragments.append((success_style, count_label))
-    if include_percentage:
+    fragments.append((success_style, seg.count_label))
+    if seg.include_percentage:
         fragments.append((base_style, " "))
-        fragments.append((success_style, percentage_label))
-    if topic_segment:
+        fragments.append((success_style, seg.percentage_label))
+    if seg.topic_segment:
         fragments.append((base_style, " "))
-        fragments.append((topic_style, topic_segment))
-    if suffix_segment:
+        fragments.append((topic_style, seg.topic_segment))
+    if seg.suffix_segment:
         fragments.append((base_style, " "))
-        fragments.append((suffix_style_spec, suffix_segment))
-
-    plain_width = sum(len(text) for _, text in fragments)
-    if plain_width < available_width:
-        fragments.append((base_style, " " * (available_width - plain_width)))
+        fragments.append((suffix_style_spec, seg.suffix_segment))
+    if seg.fill_count > 0:
+        fragments.append((base_style, " " * seg.fill_count))
 
     return FormattedText(fragments)
