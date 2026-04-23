@@ -122,11 +122,11 @@ Phase 7: Gamification (On The Fence)
 Goal: Add challenge checkpoints for retention — not yet committed to this direction.
 
 [x] 7.1 Progress Bar Information Design: Decide what the bottom bar should prioritize across CLI and REPL state, then simplify the hierarchy before changing the visuals.
-[ ] 7.2 Progress Bar Rendering + Visual Pass: Refactor toolbar/progress rendering so spacing and truncation are easier to control, then implement the redesigned bar across themes and narrower terminal widths.
-[ ] 7.3 Quiz Answer Copy + Structure Rewrite: Tighten the revealed-answer wording and restructure it so quiz feedback reads as concise review guidance instead of bulky appended text.
-[ ] 7.4 Quiz Answer Display Implementation: Update answer rendering in the CLI/REPL flow with clearer question-versus-answer separation, stronger visual weight, and better multiline formatting.
-[ ] 7.5 Quiz Answer Regression Tests: Add or update tests for answer reveal behavior so the revised presentation stays stable across quiz playback, note export, and REPL usage.
-[ ] 7.6 Entrypoint/Packaging Cleanup: Audit the current `python -m`, console script, and repo-root workflows, remove the `PYTHONPATH=src` dependency, and verify the documented developer run path still works cleanly.
+[x] 7.2 Progress Bar Rendering + Visual Pass: Refactor toolbar/progress rendering so spacing and truncation are easier to control, then implement the redesigned bar across themes and narrower terminal widths.
+[x] 7.3 Quiz Answer Copy + Structure Rewrite: Tighten the revealed-answer wording and restructure it so quiz feedback reads as concise review guidance instead of bulky appended text.
+[x] 7.4 Quiz Answer Display Implementation: Update answer rendering in the CLI/REPL flow with clearer question-versus-answer separation, stronger visual weight, and better multiline formatting.
+[x] 7.5 Quiz Answer Regression Tests: Add or update tests for answer reveal behavior so the revised presentation stays stable across quiz playback, note export, and REPL usage.
+[x] 7.6 Entrypoint/Packaging Cleanup: Audit the current `python -m`, console script, and repo-root workflows, remove the `PYTHONPATH=src` dependency, and verify the documented developer run path still works cleanly.
 
 Phase 8: Guided Lesson Briefs
 

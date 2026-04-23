@@ -82,8 +82,8 @@ A terminal-based micro-learning application that generates structured 15-step sy
 ## ⚠️ Important Context for Future Agents
 - **SDK Import:** The GitHub Copilot SDK is imported as `from copilot import CopilotClient`.
 - **Model:** The default model used is `gpt-4.1` (verified as supported for this account).
-- **Environment:** Repo-root module execution currently needs `PYTHONPATH=src ./venv/bin/python3 -m micro_learner.main`; cleaning that up is now tracked in Phase 7.
+- **Environment:** The package is installed in editable mode (`pip install -e .`). Run via `./venv/bin/micro-learner` (console script) or `./venv/bin/python3 -m micro_learner` (module). No `PYTHONPATH` prefix needed.
 - **Cache Layout:** Syllabus metadata is stored in `~/.micro_learner/syllabi/`, lesson artifacts in `~/.micro_learner/lessons/`, notes in `~/.micro_learner/notes/`, and UI settings in `~/.micro_learner/settings.json`.
 - **Active Topic Model:** `state.json` now stores `active_syllabus_id`, not inline lesson progress/content.
 - **Resume Safety:** Resumability is based on actual lesson artifacts on disk, not only the stored `cache_status`; fully cached records may be upgraded to `complete` lazily.
-- **Current Validation Baseline:** `PYTHONPATH=src ./venv/bin/python3 -m unittest discover -s tests -v` is the current project-wide verification command, and the suite is green at 65 tests.
+- **Current Validation Baseline:** `./venv/bin/python3 -m unittest discover -s tests -v` — suite is green at 80 tests.
