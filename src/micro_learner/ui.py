@@ -9,7 +9,6 @@ from rich.markdown import Markdown
 from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.progress_bar import ProgressBar
 from rich.text import Text
-from rich.align import Align
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.styles import Style
 
@@ -278,17 +277,12 @@ def render_lesson(title: str, content: str, subtitle: str = None) -> Panel:
     )
 
 def render_answer(answer_text: str) -> Panel:
-    """Creates a stylized panel for the revealed answer."""
     theme = get_current_theme()
-    content = Text.assemble(
-        ("💡 Key Insight & Answer:\n\n", "header"),
-        (answer_text, "success")
-    )
     return Panel(
-        Align.center(content),
+        Markdown(answer_text),
         border_style="success",
         padding=(1, 2),
-        title="[success]✔ Correct Answer Revealed[/success]",
+        title="[success]Answer[/success]",
         expand=True,
         style=theme.answer_panel_style,
     )

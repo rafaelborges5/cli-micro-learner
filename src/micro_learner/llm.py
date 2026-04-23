@@ -161,7 +161,8 @@ class LLMManager:
                                 "You are a master educator. Create a challenging micro-quiz for the provided sub-topic within the broader main topic. "
                                 "The quiz should test understanding, not just recall. "
                                 "Format: 1 Question followed by 3-4 multiple choice options. "
-                                "At the very end, include the correct answer prefixed with 'ANSWER: '. "
+                                "At the very end, write the correct answer and a one-sentence explanation of why it is correct, prefixed with 'ANSWER: '. "
+                                "Example: 'ANSWER: B — This is correct because...' "
                                 "Do not use conversational filler."
                             ),
                         )

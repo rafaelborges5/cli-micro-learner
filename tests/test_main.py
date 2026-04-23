@@ -127,8 +127,7 @@ class CliPersistenceTests(unittest.TestCase):
         note_content = state.get_note_path("Topic Quiz").read_text(encoding="utf-8")
         self.assertIn("### Quiz: Step 1: Ownership", note_content)
         self.assertIn("What is ownership?", note_content)
-        self.assertIn("### Answer", note_content)
-        self.assertIn("B. Two", note_content)
+        self.assertIn("**Answer:** B. Two", note_content)
         self.assertEqual(state.load_active_syllabus().current_lesson_index, 1)
 
     def test_next_does_not_advance_when_note_export_fails(self):

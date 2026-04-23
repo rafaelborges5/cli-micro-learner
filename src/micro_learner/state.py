@@ -316,7 +316,7 @@ def _format_lesson_entry(entry: NoteEntry) -> str:
     ]
 
     if entry.lesson_type == "quiz" and entry.answer:
-        lines.extend(["", "### Answer", "", entry.answer.strip()])
+        lines.extend(["", f"**Answer:** {entry.answer.strip()}"])
 
     for intervention in entry.interventions:
         if intervention.get("type") == "analogy":
