@@ -138,6 +138,16 @@ Goal: Let users guide learning with richer lesson descriptions instead of being 
 [ ] UI/State Updates: Update syllabus storage, resume views, and note export so both the long description and the generated short title are handled cleanly.
 [ ] Lesson Structure Rules: Improve lesson sequencing so early lessons establish context before testing recall, including disallowing quiz/question-first formatting for the first lesson.
 
+Phase 9: Documentation
+
+Goal: Produce comprehensive, professional documentation so the project is self-explanatory to new contributors and end users.
+
+[ ] 9.1 README: Write a full project README covering purpose, feature overview, installation (pip install -e .), all CLI commands and REPL slash commands, keyboard shortcuts (E/D during lessons), note export format, and theme options.
+[ ] 9.2 Developer Guide: Document the architecture (module responsibilities, data flow, state layout under ~/.micro_learner/), the LLM prompt design and caching strategy, how to add a new theme, and how to run the test suite.
+[ ] 9.3 CHANGELOG: Write a structured changelog grouping all delivered phases (1–7) by version or milestone, with a summary of what each phase changed.
+[ ] 9.4 Inline Docstrings: Audit all public functions and classes across main.py, logic.py, state.py, ui.py, llm.py, and repl.py; add or improve docstrings where the why or contract is non-obvious.
+[ ] 9.5 Code Examples in README: Add short terminal recordings or ASCII screenshots illustrating the REPL in action, the progress bar, theme switching, and a quiz reveal flow.
+
 5. Next Steps
 
 To begin development, the first technical hurdle will be drafting the System Prompts that force the LLM to reliably return the JSON syllabus without any conversational fluff.
