@@ -20,6 +20,7 @@ from micro_learner.state import (
     save_lesson_artifacts,
     save_syllabus_record,
 )
+from rich.rule import Rule
 from micro_learner.ui import (
     build_generation_progress,
     console,
@@ -336,7 +337,7 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
     )
     if artifact.lesson_type == "quiz":
         io.print(render_lesson(f"Quiz: {artifact.sub_topic}", artifact.content, subtitle=progress_str))
-        io.print("\n" + "─" * console.width)
+        io.print(Rule(style="info"))
 
         interventions = await interactive_wait(
             active_syllabus.topic,
@@ -349,8 +350,9 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
         with io.status("[success]Revealing answer...[/success]"):
             await asyncio.sleep(1)
 
+        io.print(Rule(style="success"))
         io.print(render_answer((artifact.answer or "No answer key provided.").strip()))
-        io.print("\n" + "─" * console.width)
+        io.print(Rule(style="info"))
         interventions.extend(
             await interactive_wait(
                 active_syllabus.topic,
@@ -362,7 +364,7 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
         )
     else:
         io.print(render_lesson(artifact.sub_topic, artifact.content, subtitle=progress_str))
-        io.print("\n" + "─" * console.width)
+        io.print(Rule(style="info"))
         interventions = await interactive_wait(
             active_syllabus.topic,
             artifact.sub_topic,

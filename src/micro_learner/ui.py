@@ -282,7 +282,7 @@ def render_answer(answer_text: str) -> Panel:
         Markdown(answer_text),
         border_style="success",
         padding=(1, 2),
-        title="[success]Answer[/success]",
+        title="[success]✓ Answer[/success]",
         expand=True,
         style=theme.answer_panel_style,
     )
