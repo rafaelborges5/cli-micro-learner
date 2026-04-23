@@ -148,6 +148,16 @@ Goal: Produce comprehensive, professional documentation so the project is self-e
 [ ] 9.4 Inline Docstrings: Audit all public functions and classes across main.py, logic.py, state.py, ui.py, llm.py, and repl.py; add or improve docstrings where the why or contract is non-obvious.
 [ ] 9.5 Code Examples in README: Add short terminal recordings or ASCII screenshots illustrating the REPL in action, the progress bar, theme switching, and a quiz reveal flow.
 
+Phase 10: Continuous Lesson Flow
+
+Goal: Replace the command-per-lesson model with an opt-in session mode where the app drives the pacing, so the user stays focused on learning rather than operating the REPL.
+
+[ ] 10.1 /flow Command: Add a /flow [n] slash command that enters a continuous lesson session, running up to n lessons in sequence (default: all remaining). Returns to the REPL prompt when the session ends or the user escapes.
+[ ] 10.2 Clean Lesson Transitions: Between lessons in a flow session, clear or visually reset the terminal so each lesson feels like a fresh screen rather than an append to the scroll buffer.
+[ ] 10.3 Session Progress Header: Show a persistent session-level progress indicator during flow (e.g. "Session: 3 of 5 planned") separate from the overall syllabus toolbar, so the user knows how many lessons remain in the current run.
+[ ] 10.4 Pause and Resume Flow: Let the user press Escape (or a dedicated key) mid-session to pause and drop back to the REPL prompt. A /flow resume command or re-running /flow continues from where they left off.
+[ ] 10.5 Flow State in Toolbar: While a flow session is active, reflect that in the bottom toolbar suffix (e.g. "[Flow: 2/5]") so the session state is always visible.
+
 5. Next Steps
 
 To begin development, the first technical hurdle will be drafting the System Prompts that force the LLM to reliably return the JSON syllabus without any conversational fluff.
