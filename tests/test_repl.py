@@ -339,6 +339,16 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         for style, _ in ft:
             self.assertIn("noreverse", style)
 
+    # --- render_answer unit tests ---
+
+    def test_render_answer_panel_has_check_title_and_content(self):
+        from micro_learner.ui import render_answer, render_to_text
+        set_current_theme("Modern")
+        panel = render_answer("B — explanation text")
+        plain = render_to_text(panel)
+        self.assertIn("✓ Answer", plain)
+        self.assertIn("B — explanation text", plain)
+
     def test_context_header_without_active_topic_prints_hint(self):
         shell = repl.REPLShell()
 

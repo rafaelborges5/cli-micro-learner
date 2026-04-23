@@ -130,6 +130,49 @@ class CliPersistenceTests(unittest.TestCase):
         self.assertIn("**Answer:** B. Two", note_content)
         self.assertEqual(state.load_active_syllabus().current_lesson_index, 1)
 
+    def test_quiz_answer_appears_in_terminal_output(self):
+        state.initialize_cached_topic(
+            "Quiz Terminal",
+            ["Step 1"],
+            [
+                state.LessonArtifact(
+                    step_number=1,
+                    sub_topic="Step 1",
+                    lesson_type="quiz",
+                    content="Which is correct?\nA. One\nB. Two",
+                    answer="B — Two is correct because of reasons.",
+                )
+            ],
+        )
+        with patch('click.getchar', return_value='\n'), patch('time.sleep', return_value=None):
+            result = self.runner.invoke(main.cli, ["next"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Which is correct?", result.output)
+        self.assertIn("B — Two is correct because of reasons.", result.output)
+
+    def test_quiz_missing_answer_shows_fallback_in_terminal(self):
+        state.initialize_cached_topic(
+            "Quiz No Answer",
+            ["Step 1"],
+            [
+                state.LessonArtifact(
+                    step_number=1,
+                    sub_topic="Step 1",
+                    lesson_type="quiz",
+                    content="Q?",
+                    answer=None,
+                )
+            ],
+        )
+        with patch('click.getchar', return_value='\n'), patch('time.sleep', return_value=None):
+            result = self.runner.invoke(main.cli, ["next"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("No answer key provided.", result.output)
+        note_content = state.get_note_path("Quiz No Answer").read_text(encoding="utf-8")
+        self.assertNotIn("**Answer:**", note_content)
+
     def test_next_does_not_advance_when_note_export_fails(self):
         state.initialize_cached_topic(
             "Topic Failure",

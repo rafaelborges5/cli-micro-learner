@@ -123,6 +123,7 @@ class InterventionsTests(unittest.TestCase):
         note_path = state.get_note_path(topic)
         note_content = note_path.read_text(encoding="utf-8")
         
+        self.assertIn("**Answer:** It is a Rust concept.", note_content)
         self.assertIn("### 💡 Simpler Analogy", note_content)
         self.assertIn("Analogy before reveal.", note_content)
         self.assertIn("### 💻 Code Example", note_content)
