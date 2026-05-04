@@ -17,6 +17,10 @@ def configure_state_paths(base_dir: Path):
     state.SETTINGS_FILE = state.APP_DIR / "settings.json"
 
 
+def syllabus_steps(*titles: str):
+    return [state.SyllabusStep(title=title, brief=f"{title} brief") for title in titles]
+
+
 class CliPersistenceTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -49,10 +53,10 @@ class CliPersistenceTests(unittest.TestCase):
                 ),
             ]
 
-        with patch.object(logic.LLMManager, "generate_syllabus", return_value=["Step 1", "Step 2"]), \
+        with patch.object(logic.LLMManager, "generate_syllabus", return_value=syllabus_steps("Step 1", "Step 2")) as generate_syllabus_mock, \
              patch.object(logic.LLMManager, "generate_cached_lessons", side_effect=generate_cached_lessons):
-            first = self.runner.invoke(main.cli, ["start", "Topic One"])
-            second = self.runner.invoke(main.cli, ["start", "Topic Two"])
+            first = self.runner.invoke(main.cli, ["start", "Topic One"], input="Focus on real examples.\n")
+            second = self.runner.invoke(main.cli, ["start", "Topic Two"], input="Focus on practice.\n")
 
         self.assertEqual(first.exit_code, 0)
         self.assertEqual(second.exit_code, 0)
@@ -65,11 +69,13 @@ class CliPersistenceTests(unittest.TestCase):
         self.assertEqual(state.load_active_syllabus().topic, "Topic Two")
         self.assertEqual(state.load_active_syllabus().cache_status, "complete")
         self.assertIn("Generating lesson", first.output)
+        generate_syllabus_mock.assert_any_call("Topic One", "Focus on real examples.")
+        generate_syllabus_mock.assert_any_call("Topic Two", "Focus on practice.")
 
     def test_next_exports_explanation_and_advances_progress(self):
         record = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1", "Step 2"],
+            syllabus_steps("Step 1", "Step 2"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -106,7 +112,7 @@ class CliPersistenceTests(unittest.TestCase):
     def test_next_exports_quiz_question_and_answer(self):
         state.initialize_cached_topic(
             "Topic Quiz",
-            ["Ownership"],
+            syllabus_steps("Ownership"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -133,7 +139,7 @@ class CliPersistenceTests(unittest.TestCase):
     def test_quiz_answer_appears_in_terminal_output(self):
         state.initialize_cached_topic(
             "Quiz Terminal",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -154,7 +160,7 @@ class CliPersistenceTests(unittest.TestCase):
     def test_quiz_missing_answer_shows_fallback_in_terminal(self):
         state.initialize_cached_topic(
             "Quiz No Answer",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -176,7 +182,7 @@ class CliPersistenceTests(unittest.TestCase):
     def test_next_does_not_advance_when_note_export_fails(self):
         state.initialize_cached_topic(
             "Topic Failure",
-            ["Broken Export"],
+            syllabus_steps("Broken Export"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -196,9 +202,9 @@ class CliPersistenceTests(unittest.TestCase):
         self.assertEqual(state.load_active_syllabus().current_lesson_index, 0)
 
     def test_start_failure_does_not_leave_active_partial_cache(self):
-        with patch.object(logic.LLMManager, "generate_syllabus", return_value=["Step 1"]), \
+        with patch.object(logic.LLMManager, "generate_syllabus", return_value=syllabus_steps("Step 1")), \
              patch.object(logic.LLMManager, "generate_cached_lessons", side_effect=ValueError("boom")):
-            result = self.runner.invoke(main.cli, ["start", "Topic Broken"])
+            result = self.runner.invoke(main.cli, ["start", "Topic Broken"], input="Broken brief.\n")
 
         self.assertEqual(result.exit_code, 0)
         self.assertIn("Failed to initialize cached lessons", result.output)
@@ -208,7 +214,7 @@ class CliPersistenceTests(unittest.TestCase):
     def test_next_errors_when_cached_artifact_is_missing(self):
         record = state.initialize_cached_topic(
             "Topic Missing",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -235,7 +241,7 @@ class CliPersistenceTests(unittest.TestCase):
     def test_resume_activates_selected_in_progress_syllabus(self):
         first = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1", "Step 2"],
+            syllabus_steps("Step 1", "Step 2"),
             [
                 state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One"),
                 state.LessonArtifact(step_number=2, sub_topic="Step 2", lesson_type="lesson", content="Two"),
@@ -243,7 +249,7 @@ class CliPersistenceTests(unittest.TestCase):
         )
         second = state.initialize_cached_topic(
             "Topic Two",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Two"),
             ],
@@ -260,7 +266,7 @@ class CliPersistenceTests(unittest.TestCase):
     def test_resume_activates_completed_syllabus(self):
         record = state.initialize_cached_topic(
             "Finished Topic",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Done"),
             ],
@@ -277,7 +283,7 @@ class CliPersistenceTests(unittest.TestCase):
     def test_resume_start_new_topic_option_does_not_change_active_state(self):
         record = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One"),
             ],
@@ -292,12 +298,12 @@ class CliPersistenceTests(unittest.TestCase):
     def test_resume_rejects_incomplete_syllabus(self):
         good = state.initialize_cached_topic(
             "Good Topic",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One"),
             ],
         )
-        bad = state.create_syllabus_record("Broken Topic", ["Step 1"])
+        bad = state.create_syllabus_record("Broken Topic", syllabus_steps("Step 1"))
         state.activate_syllabus(good.id)
 
         result = self.runner.invoke(main.cli, ["resume"], input="1\n")
@@ -310,14 +316,14 @@ class CliPersistenceTests(unittest.TestCase):
     def test_resume_reprompts_on_invalid_selection(self):
         first = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One"),
             ],
         )
         second = state.initialize_cached_topic(
             "Topic Two",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Two"),
             ],

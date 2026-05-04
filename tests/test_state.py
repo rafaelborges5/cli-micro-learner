@@ -15,6 +15,10 @@ def configure_state_paths(base_dir: Path):
     state.SETTINGS_FILE = state.APP_DIR / "settings.json"
 
 
+def syllabus_steps(*titles: str):
+    return [state.SyllabusStep(title=title, brief=f"{title} brief") for title in titles]
+
+
 class StatePersistenceTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -37,7 +41,7 @@ class StatePersistenceTests(unittest.TestCase):
     def test_initialize_cached_topic_creates_record_cache_and_active_pointer(self):
         record = state.initialize_cached_topic(
             "Advanced Rust Traits",
-            ["Associated Types", "GATs"],
+            syllabus_steps("Associated Types", "GATs"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -64,13 +68,15 @@ class StatePersistenceTests(unittest.TestCase):
         self.assertEqual(loaded_record.total_lessons, 2)
         self.assertEqual(loaded_record.current_lesson_index, 0)
         self.assertEqual(loaded_record.cache_status, "complete")
+        self.assertEqual(loaded_record.syllabus[0].title, "Associated Types")
+        self.assertEqual(loaded_record.syllabus[0].brief, "Associated Types brief")
         self.assertTrue((state.SYLLABI_DIR / f"{record.id}.json").exists())
         self.assertTrue((state.get_lesson_cache_dir(record.id) / "step-001.json").exists())
 
     def test_new_topic_does_not_overwrite_previous_syllabus(self):
         first = state.initialize_cached_topic(
             "Python Typing",
-            ["Basics"],
+            syllabus_steps("Basics"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -82,7 +88,7 @@ class StatePersistenceTests(unittest.TestCase):
         )
         second = state.initialize_cached_topic(
             "Rust Ownership",
-            ["Borrowing"],
+            syllabus_steps("Borrowing"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -116,6 +122,34 @@ class StatePersistenceTests(unittest.TestCase):
 
         state.bootstrap()
 
+        self.assertEqual(state.load_state().active_syllabus_id, None)
+
+    def test_bootstrap_removes_legacy_string_syllabus_records(self):
+        legacy_id = "legacy-topic"
+        legacy_record_path = state.SYLLABI_DIR / f"{legacy_id}.json"
+        legacy_cache_dir = state.LESSONS_DIR / legacy_id
+        legacy_cache_dir.mkdir(parents=True)
+        legacy_record_path.write_text(
+            json.dumps(
+                {
+                    "id": legacy_id,
+                    "topic": "Legacy Topic",
+                    "created_at": "2026-04-16T10:00:00+00:00",
+                    "updated_at": "2026-04-16T10:00:00+00:00",
+                    "current_lesson_index": 0,
+                    "total_lessons": 2,
+                    "cache_status": "complete",
+                    "syllabus": ["One", "Two"],
+                }
+            ),
+            encoding="utf-8",
+        )
+        state.save_state(state.GlobalState(active_syllabus_id=legacy_id))
+
+        state.bootstrap()
+
+        self.assertFalse(legacy_record_path.exists())
+        self.assertFalse(legacy_cache_dir.exists())
         self.assertEqual(state.load_state().active_syllabus_id, None)
 
     def test_load_settings_returns_saved_theme(self):
@@ -174,7 +208,7 @@ class StatePersistenceTests(unittest.TestCase):
     def test_load_lesson_artifact_returns_cached_step(self):
         record = state.initialize_cached_topic(
             "Topic Cache",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(
                     step_number=1,

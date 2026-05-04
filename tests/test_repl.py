@@ -30,6 +30,10 @@ def configure_state_paths(base_dir: Path):
     state.SETTINGS_FILE = state.APP_DIR / "settings.json"
 
 
+def syllabus_steps(*titles: str):
+    return [state.SyllabusStep(title=title, brief=f"{title} brief") for title in titles]
+
+
 class REPLShellTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -109,17 +113,17 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
             "Python Typing",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
         state.initialize_cached_topic(
             "Rust Ownership",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Two")],
         )
         state.initialize_cached_topic(
             "Python Typing",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Three")],
         )
 
@@ -131,12 +135,12 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         active = state.initialize_cached_topic(
             "Active Topic",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
         state.initialize_cached_topic(
             "Second Topic",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Two")],
         )
         state.activate_syllabus(active.id)
@@ -150,13 +154,13 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         active = state.initialize_cached_topic(
             "Active Topic",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
         active.current_lesson_index = 1
         state.save_syllabus_record(active)
         state.activate_syllabus(active.id)
-        state.create_syllabus_record("Broken Topic", ["Step 1"])
+        state.create_syllabus_record("Broken Topic", syllabus_steps("Step 1"))
 
         shell._refresh_view_state()
         candidates = shell._build_resume_candidates()
@@ -170,7 +174,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
     def test_build_resume_candidates_treats_full_pending_cache_as_ready(self):
         shell = repl.REPLShell()
-        record = state.create_syllabus_record("Topic One", ["Step 1", "Step 2"])
+        record = state.create_syllabus_record("Topic One", syllabus_steps("Step 1", "Step 2"))
         state.save_lesson_artifacts(
             record.id,
             [
@@ -199,12 +203,12 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
             "Advanced Rust Traits",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
         state.initialize_cached_topic(
             "Rust Ownership",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Two")],
         )
 
@@ -216,7 +220,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
             "Distributed Systems Design",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
 
@@ -228,7 +232,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
             "Python Typing",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
 
@@ -361,7 +365,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
             "Topic One",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
         )
 
@@ -444,7 +448,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_background_prefetch_saves_artifacts_incrementally(self):
         shell = repl.REPLShell()
-        record = state.create_syllabus_record("Topic One", ["Step 1", "Step 2"])
+        record = state.create_syllabus_record("Topic One", syllabus_steps("Step 1", "Step 2"))
 
         async def fake_generate_cached_lessons(*args, **kwargs):
             artifact = state.LessonArtifact(
@@ -460,7 +464,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
              patch.object(repl.console, "print"):
             llm_mock.return_value.generate_cached_lessons = fake_generate_cached_lessons
             shell._mark_prefetch_started("1/2")
-            await shell._background_prefetch("Topic One", ["Step 2"], record.id)
+            await shell._background_prefetch("Topic One", syllabus_steps("Step 2"), record.id)
 
         self.assertIsNotNone(state.load_lesson_artifact(record.id, 2))
         self.assertEqual(shell.state.prefetch.status, "complete")
@@ -468,14 +472,14 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_background_prefetch_failure_enqueues_error_toast(self):
         shell = repl.REPLShell()
-        record = state.create_syllabus_record("Topic One", ["Step 1", "Step 2"])
+        record = state.create_syllabus_record("Topic One", syllabus_steps("Step 1", "Step 2"))
 
         async def fake_generate_cached_lessons(*args, **kwargs):
             raise RuntimeError("boom")
 
         with patch.object(repl, "LLMManager") as llm_mock:
             llm_mock.return_value.generate_cached_lessons = fake_generate_cached_lessons
-            await shell._background_prefetch("Topic One", ["Step 2"], record.id)
+            await shell._background_prefetch("Topic One", syllabus_steps("Step 2"), record.id)
 
         self.assertEqual(shell.state.prefetch.status, "failed")
         self.assertEqual(shell.state.pending_toasts[0].message, "Background cache warmup failed.")
@@ -484,12 +488,12 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         first = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
         second = state.initialize_cached_topic(
             "Topic Two",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Two")],
         )
         state.activate_syllabus(first.id)
@@ -504,7 +508,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
             "Topic One",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
 
@@ -517,12 +521,12 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         first = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
         second = state.initialize_cached_topic(
             "Topic Two",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Two")],
         )
         state.activate_syllabus(first.id)
@@ -538,7 +542,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         first = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One")],
         )
         state.activate_syllabus(first.id)
@@ -550,7 +554,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_activate_resume_candidate_rejects_incomplete_record(self):
         shell = repl.REPLShell()
-        broken = state.create_syllabus_record("Broken Topic", ["Step 1"])
+        broken = state.create_syllabus_record("Broken Topic", syllabus_steps("Step 1"))
 
         with patch.object(repl.console, "print") as print_mock:
             activated = shell._activate_resume_candidate(broken.id)
@@ -586,7 +590,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
             "Topic One",
-            ["Step 1", "Step 2"],
+            syllabus_steps("Step 1", "Step 2"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
         )
         active = state.load_active_syllabus()
@@ -609,7 +613,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         record = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1", "Step 2"],
+            syllabus_steps("Step 1", "Step 2"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
         )
         active = state.load_active_syllabus()
@@ -640,7 +644,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         record = state.initialize_cached_topic(
             "Topic One",
-            ["Step 1", "Step 2"],
+            syllabus_steps("Step 1", "Step 2"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
         )
         record.current_lesson_index = 1
@@ -656,7 +660,7 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         shell = repl.REPLShell()
         state.initialize_cached_topic(
             "Topic One",
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
         )
         shell._mark_prefetch_started("1/1")

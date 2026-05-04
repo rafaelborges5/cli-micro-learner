@@ -17,6 +17,10 @@ def configure_state_paths(base_dir: Path):
     state.SETTINGS_FILE = state.APP_DIR / "settings.json"
 
 
+def syllabus_steps(*titles: str):
+    return [state.SyllabusStep(title=title, brief=f"{title} brief") for title in titles]
+
+
 class InterventionsTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -32,7 +36,7 @@ class InterventionsTests(unittest.TestCase):
         topic = "Intervention Topic"
         record = state.initialize_cached_topic(
             topic,
-            ["Step 1"],
+            syllabus_steps("Step 1"),
             [
                 state.LessonArtifact(
                     step_number=1,
@@ -88,7 +92,7 @@ class InterventionsTests(unittest.TestCase):
         topic = "Quiz Topic"
         state.initialize_cached_topic(
             topic,
-            ["Ownership"],
+            syllabus_steps("Ownership"),
             [
                 state.LessonArtifact(
                     step_number=1,
