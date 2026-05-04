@@ -65,9 +65,9 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [ ] **7.6 Entrypoint/Packaging Cleanup:** Remove the current repo-root dependency on `PYTHONPATH=src` and verify development and installed entrypaths behave consistently.
 
 ### Phase 8: Guided Lesson Briefs (PLANNED)
-- [ ] **Long-Form Lesson Inputs:** Allow syllabus steps to store richer user-provided lesson briefs.
-- [ ] **AI-Generated Step Titles:** Generate concise titles for use in progress UI, menus, and notes.
-- [ ] **Prompting from Briefs:** Use the longer brief as the main generation context for lessons.
+- [x] **Long-Form Lesson Inputs:** New syllabus creation now prompts for a long-form learning brief and stores generated structured syllabus steps.
+- [x] **AI-Generated Step Titles:** Syllabus generation returns concise AI-generated titles for progress UI, menus, and notes.
+- [x] **Prompting from Briefs:** Lesson and quiz cache generation uses the generated per-step brief as the main instructional context.
 - [ ] **UI/State Updates:** Carry both long descriptions and short titles through storage, resume, and notes.
 - [ ] **Lesson Structure Rules:** Early lessons should establish context before switching to question-first formatting.
 
@@ -85,5 +85,6 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - **Environment:** The package is installed in editable mode (`pip install -e .`). Run via `./venv/bin/micro-learner` (console script) or `./venv/bin/python3 -m micro_learner` (module). No `PYTHONPATH` prefix needed.
 - **Cache Layout:** Syllabus metadata is stored in `~/.micro_learner/syllabi/`, lesson artifacts in `~/.micro_learner/lessons/`, notes in `~/.micro_learner/notes/`, and UI settings in `~/.micro_learner/settings.json`.
 - **Active Topic Model:** `state.json` now stores `active_syllabus_id`, not inline lesson progress/content.
+- **Syllabus Step Model:** New syllabus records use structured steps with `title` and `brief`; legacy string-syllabus records are removed during bootstrap rather than migrated.
 - **Resume Safety:** Resumability is based on actual lesson artifacts on disk, not only the stored `cache_status`; fully cached records may be upgraded to `complete` lazily.
 - **Current Validation Baseline:** `./venv/bin/python3 -m unittest discover -s tests -v` — suite is green at 80 tests.
