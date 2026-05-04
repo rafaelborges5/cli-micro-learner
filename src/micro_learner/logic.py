@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from micro_learner.state import (
     LessonArtifact,
     NoteEntry,
+    SyllabusStep,
     activate_syllabus,
     append_note_entry,
     create_syllabus_record,
@@ -46,6 +47,9 @@ class TerminalIO:
 
     async def prompt_select(self, text: str, min_value: int, max_value: int) -> int:
         return click.prompt(text, type=click.IntRange(min_value, max_value))
+
+    async def prompt_text(self, text: str) -> str:
+        return click.prompt(text, type=str)
 
     async def read_key(self, prompt_text: str) -> str:
         click.echo(click.style(
@@ -157,7 +161,7 @@ def render_active_syllabus_summary(io: TerminalIO = DEFAULT_IO):
     ):
         next_lesson = active_syllabus.syllabus[active_syllabus.current_lesson_index]
         io.print(
-            f"[info]Next Up:[/info] Step {active_syllabus.current_lesson_index + 1}: {next_lesson}"
+            f"[info]Next Up:[/info] Step {active_syllabus.current_lesson_index + 1}: {next_lesson.title}"
         )
     elif active_syllabus.total_lessons > 0:
         io.print("[success]Congratulations! You've completed this syllabus.[/success]")
@@ -202,14 +206,19 @@ async def execute_start(
     topic: str,
     background: bool = False,
     io: TerminalIO = DEFAULT_IO,
-) -> tuple[list[str], str] | None:
+) -> tuple[list[SyllabusStep], str] | None:
     """Logic for the start command. 
     If background=True, generates only the first lesson and returns the remainder.
     """
     llm = LLMManager()
+    brief = (await io.prompt_text("Describe what this syllabus should teach, in detail")).strip()
+
+    if not brief:
+        io.print("[error]A long-form syllabus brief is required.[/error]")
+        return None
     
     with io.status(f"[info]Architecting syllabus for '{topic}'...[/info]"):
-        syllabus = await llm.generate_syllabus(topic)
+        syllabus = await llm.generate_syllabus(topic, brief)
     
     if not syllabus:
         io.print("[error]Failed to generate syllabus. Please try again.[/error]")
@@ -231,7 +240,7 @@ async def execute_start(
             activate_syllabus(record.id)
             
             io.print(f"[success]Topic initialized:[/success] [topic]{topic}[/topic]")
-            io.print(f"[info]Step 1: {syllabus[0]}[/info]")
+            io.print(f"[info]Step 1: {syllabus[0].title}[/info]")
             io.print("[info]Rest of the lessons are caching in the background...[/info]")
             return (syllabus[1:], record.id)
         else:
@@ -270,7 +279,7 @@ async def execute_start(
             io.print(f"[success]Successfully initialized topic:[/success] [topic]{topic}[/topic]")
             io.print("[info]Syllabus Overview:[/info]")
             for i, step in enumerate(syllabus[:5], 1):
-                io.print(f"  {i}. {step}")
+                io.print(f"  {i}. {step.title}")
             if len(syllabus) > 5:
                 io.print(f"  ... and {len(syllabus) - 5} more steps.")
             io.print("\n[info]Run 'micro-learner next' to start your first lesson![/info]")

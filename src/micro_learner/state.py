@@ -25,6 +25,12 @@ class AppSettings(BaseModel):
     theme_name: str = "Modern"
 
 
+class SyllabusStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str
+    brief: str
+
+
 class SyllabusRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
@@ -34,7 +40,7 @@ class SyllabusRecord(BaseModel):
     current_lesson_index: int = 0
     total_lessons: int
     cache_status: str = "pending"
-    syllabus: List[str] = Field(default_factory=list)
+    syllabus: List[SyllabusStep] = Field(default_factory=list)
 
 
 class LessonArtifact(BaseModel):
@@ -115,6 +121,9 @@ def bootstrap():
     except (json.JSONDecodeError, ValidationError):
         save_settings(_new_app_settings())
 
+    remove_invalid_syllabus_records()
+    reset_stale_active_syllabus()
+
 
 def load_state() -> GlobalState:
     """Loads the global state from the JSON file."""
@@ -126,6 +135,26 @@ def load_state() -> GlobalState:
     with open(STATE_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
     return GlobalState(**data)
+
+
+def remove_invalid_syllabus_records():
+    """Deletes syllabus records that do not match the current schema."""
+    for path in SYLLABI_DIR.glob("*.json"):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            SyllabusRecord(**data)
+        except (json.JSONDecodeError, ValidationError):
+            record_id = path.stem
+            path.unlink(missing_ok=True)
+            delete_syllabus_cache(record_id)
+
+
+def reset_stale_active_syllabus():
+    """Clears the active pointer when it references a missing syllabus record."""
+    state = load_state()
+    if state.active_syllabus_id and not _syllabus_path(state.active_syllabus_id).exists():
+        save_state(_new_global_state())
 
 
 def save_state(state: GlobalState):
@@ -207,7 +236,7 @@ def is_syllabus_resumable(record: SyllabusRecord) -> bool:
     return True
 
 
-def create_syllabus_record(topic: str, syllabus: List[str]) -> SyllabusRecord:
+def create_syllabus_record(topic: str, syllabus: List[SyllabusStep]) -> SyllabusRecord:
     """Creates and persists a new syllabus record for a topic."""
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
     now_iso = _now_iso()
@@ -283,7 +312,7 @@ def delete_syllabus_record(record_id: str):
 
 def initialize_cached_topic(
     topic: str,
-    syllabus: List[str],
+    syllabus: List[SyllabusStep],
     lesson_artifacts: List[LessonArtifact],
 ) -> SyllabusRecord:
     """Creates, fully caches, and activates a new syllabus."""

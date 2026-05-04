@@ -53,6 +53,10 @@ from micro_learner.ui import (
 class REPLIO(TerminalIO):
     """REPL IO uses the standard terminal output path."""
 
+    async def prompt_text(self, text: str) -> str:
+        session = PromptSession()
+        return await session.prompt_async(f"{text}: ")
+
 
 class REPLCompleter(Completer):
     def __init__(self, command_names: list[str], shell: "REPLShell"):

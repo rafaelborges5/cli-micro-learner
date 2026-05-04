@@ -5,7 +5,8 @@ import re
 from typing import Callable, List, Optional
 from copilot import CopilotClient
 from copilot.session import PermissionHandler
-from micro_learner.state import LessonArtifact
+from pydantic import ValidationError
+from micro_learner.state import LessonArtifact, SyllabusStep
 from micro_learner.ui import console
 
 class LLMManager:
@@ -53,16 +54,19 @@ class LLMManager:
             console.print(f"[error]Copilot Error: {event.data.message}[/error]")
             self._session_request["done"].set()
 
-    async def generate_syllabus(self, topic: str) -> List[str]:
-        """Generates a 15-step syllabus for the given topic."""
+    async def generate_syllabus(self, topic: str, brief: str) -> List[SyllabusStep]:
+        """Generates a 15-step syllabus from a topic and long-form learning brief."""
         system_prompt = (
-            "You are a master educator. Your task is to generate a progressive, 15-step syllabus for a given topic. "
-            "The syllabus should start from foundational concepts and move to advanced mastery. "
-            "Return ONLY a JSON array of strings, where each string is a concise title for a lesson. "
+            "You are a master educator. Your task is to generate a progressive, 15-step syllabus for a topic, "
+            "using the user's long-form learning brief as the source of truth for scope, depth, constraints, and emphasis. "
+            "The syllabus should start from foundational context and move toward advanced mastery. "
+            "Return ONLY a JSON array of objects. Each object must have exactly two string fields: "
+            "'title' for a concise lesson title, and 'brief' for the specific teaching brief that lesson should follow. "
+            "Every title and brief must be non-empty. "
             "Do not include any conversational text, headers, or markdown code blocks."
         )
         
-        prompt = f"Topic: {topic}"
+        prompt = f"Topic: {topic}\n\nUser learning brief:\n{brief}"
         
         raw_response = await self.get_response(prompt, system_prompt)
         
@@ -70,12 +74,15 @@ class LLMManager:
         clean_json = re.sub(r"```json|```", "", raw_response).strip()
         
         try:
-            syllabus = json.loads(clean_json)
-            if isinstance(syllabus, list) and len(syllabus) > 0:
-                return syllabus
-            else:
+            syllabus_data = json.loads(clean_json)
+            if not isinstance(syllabus_data, list) or len(syllabus_data) == 0:
                 raise ValueError("Response was not a valid non-empty list.")
-        except (json.JSONDecodeError, ValueError) as e:
+
+            syllabus = [SyllabusStep(**step) for step in syllabus_data]
+            if any(not step.title.strip() or not step.brief.strip() for step in syllabus):
+                raise ValueError("Every syllabus step must include a non-empty title and brief.")
+            return syllabus
+        except (json.JSONDecodeError, ValueError, ValidationError) as e:
             console.print(f"[error]Failed to parse syllabus: {e}[/error]")
             console.print(f"[warning]Raw response was: {raw_response}[/warning]")
             return []
@@ -132,7 +139,7 @@ class LLMManager:
     async def generate_cached_lessons(
         self,
         topic: str,
-        syllabus: List[str],
+        syllabus: List[SyllabusStep],
         progress_callback: Optional[Callable[[int, int, str, str], None]] = None,
         artifact_callback: Optional[Callable[[LessonArtifact], None]] = None,
         start_step: int = 1,
@@ -147,8 +154,10 @@ class LLMManager:
                 on_permission_request=PermissionHandler.approve_all
             ) as session:
                 session.on(self._on_session_event)
-                for i, sub_topic in enumerate(syllabus):
+                for i, step in enumerate(syllabus):
                     step_number = start_step + i
+                    sub_topic = step.title
+                    lesson_brief = step.brief
                     lesson_type = "quiz" if random.random() < 0.3 else "lesson"
                     if progress_callback:
                         progress_callback(i, total_steps, sub_topic, lesson_type)
@@ -156,9 +165,9 @@ class LLMManager:
                     if lesson_type == "quiz":
                         raw_quiz = await self._send_with_session(
                             session,
-                            f"Main Topic: {topic}\nSub-Topic: {sub_topic}",
+                            f"Main Topic: {topic}\nLesson Title: {sub_topic}\nLesson Brief:\n{lesson_brief}",
                             (
-                                "You are a master educator. Create a challenging micro-quiz for the provided sub-topic within the broader main topic. "
+                                "You are a master educator. Create a challenging micro-quiz for the provided lesson brief within the broader main topic. "
                                 "The quiz should test understanding, not just recall. "
                                 "Format: 1 Question followed by 3-4 multiple choice options. "
                                 "At the very end, write the correct answer and a one-sentence explanation of why it is correct, prefixed with 'ANSWER: '. "
@@ -187,9 +196,9 @@ class LLMManager:
                     else:
                         lesson_text = await self._send_with_session(
                             session,
-                            f"Main Topic: {topic}\nSub-Topic: {sub_topic}",
+                            f"Main Topic: {topic}\nLesson Title: {sub_topic}\nLesson Brief:\n{lesson_brief}",
                             (
-                                "You are a master educator. Explain the provided sub-topic within the broader context of the main topic. "
+                                "You are a master educator. Explain the provided lesson brief within the broader context of the main topic. "
                                 "Keep the explanation concise (approximately 150 words), high-impact, and clear. "
                                 "Use Markdown for formatting (bold, code blocks, lists). "
                                 "Do not use conversational filler like 'Sure!' or 'Here is your lesson'."
