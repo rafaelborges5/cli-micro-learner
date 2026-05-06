@@ -168,8 +168,11 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(candidates[0].topic, "Broken Topic")
         self.assertFalse(candidates[0].resumable)
         self.assertIn("Cache Incomplete", candidates[0].label)
+        self.assertIn("Next: Step 1", candidates[0].label)
+        self.assertNotIn("Step 1 brief", candidates[0].label)
         self.assertTrue(candidates[1].is_active)
         self.assertTrue(candidates[1].is_completed)
+        self.assertIn("Next: Done", candidates[1].label)
         self.assertIn("Completed", candidates[1].label)
 
     def test_build_resume_candidates_treats_full_pending_cache_as_ready(self):

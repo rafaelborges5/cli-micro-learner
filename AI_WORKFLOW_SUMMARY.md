@@ -68,7 +68,7 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [x] **Long-Form Lesson Inputs:** New syllabus creation now prompts for a long-form learning brief and stores generated structured syllabus steps.
 - [x] **AI-Generated Step Titles:** Syllabus generation returns concise AI-generated titles for progress UI, menus, and notes.
 - [x] **Prompting from Briefs:** Lesson and quiz cache generation uses the generated per-step brief as the main instructional context.
-- [ ] **UI/State Updates:** Carry both long descriptions and short titles through storage, resume, and notes.
+- [x] **UI/State Updates:** Status output and notes expose generated briefs, while resume views stay compact with generated titles.
 - [ ] **Lesson Structure Rules:** Early lessons should establish context before switching to question-first formatting.
 
 ## 📂 Key Architecture

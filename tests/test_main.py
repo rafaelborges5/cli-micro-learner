@@ -105,6 +105,7 @@ class CliPersistenceTests(unittest.TestCase):
         self.assertIn(f"## Session ", note_content)
         self.assertIn(f"({record.id})", note_content)
         self.assertIn("### Step 1: Step 1", note_content)
+        self.assertIn("- Brief: Step 1 brief", note_content)
         self.assertIn("**Lesson body**", note_content)
         self.assertEqual(state.load_active_syllabus().current_lesson_index, 1)
         self.assertIsNotNone(state.load_lesson_artifact(record.id, 1))
@@ -132,9 +133,30 @@ class CliPersistenceTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         note_content = state.get_note_path("Topic Quiz").read_text(encoding="utf-8")
         self.assertIn("### Quiz: Step 1: Ownership", note_content)
+        self.assertIn("- Brief: Ownership brief", note_content)
         self.assertIn("What is ownership?", note_content)
         self.assertIn("**Answer:** B. Two", note_content)
         self.assertEqual(state.load_active_syllabus().current_lesson_index, 1)
+
+    def test_status_shows_next_title_and_brief(self):
+        record = state.initialize_cached_topic(
+            "Topic Status",
+            syllabus_steps("Step 1", "Step 2"),
+            [
+                state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="One"),
+                state.LessonArtifact(step_number=2, sub_topic="Step 2", lesson_type="lesson", content="Two"),
+            ],
+        )
+        record.current_lesson_index = 1
+        state.save_syllabus_record(record)
+
+        result = self.runner.invoke(main.cli, ["status"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Next Up:", result.output)
+        self.assertIn("Step 2: Step 2", result.output)
+        self.assertIn("Brief:", result.output)
+        self.assertIn("Step 2 brief", result.output)
 
     def test_quiz_answer_appears_in_terminal_output(self):
         state.initialize_cached_topic(
@@ -261,6 +283,8 @@ class CliPersistenceTests(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0)
         self.assertIn("Resumed topic:", result.output)
+        self.assertIn("Next", result.output)
+        self.assertIn("Step 2", result.output)
         self.assertEqual(state.load_state().active_syllabus_id, first.id)
 
     def test_resume_activates_completed_syllabus(self):

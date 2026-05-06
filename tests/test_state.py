@@ -176,6 +176,7 @@ class StatePersistenceTests(unittest.TestCase):
             lesson_type="lesson",
             topic="Python Typing",
             sub_topic="Annotations",
+            lesson_brief="Explain annotation syntax and runtime behavior.",
             step_number=1,
             total_lessons=2,
             completed_at="2026-04-16T10:00:00+00:00",
@@ -202,6 +203,7 @@ class StatePersistenceTests(unittest.TestCase):
         self.assertIn("## Session 2026-04-16 10:00 UTC (session-one)", content)
         self.assertIn("### Step 1: Annotations", content)
         self.assertIn("### Step 2: Protocols", content)
+        self.assertIn("- Brief: Explain annotation syntax and runtime behavior.", content)
         self.assertIn("First body", content)
         self.assertIn("Second body", content)
 

@@ -93,6 +93,7 @@ def build_note_entry(
     lesson_type: str,
     topic: str,
     sub_topic: str,
+    lesson_brief: str | None,
     step_number: int,
     total_lessons: int,
     content: str,
@@ -105,6 +106,7 @@ def build_note_entry(
         lesson_type=lesson_type,
         topic=topic,
         sub_topic=sub_topic,
+        lesson_brief=lesson_brief,
         step_number=step_number,
         total_lessons=total_lessons,
         completed_at=datetime.now(timezone.utc).isoformat(),
@@ -119,6 +121,7 @@ def build_note_entry_from_artifact(
     syllabus_id: str,
     topic: str,
     total_lessons: int,
+    lesson_brief: str | None = None,
     interventions: list[dict] | None = None,
 ) -> NoteEntry:
     """Converts a cached lesson artifact to a note export payload."""
@@ -127,6 +130,7 @@ def build_note_entry_from_artifact(
         lesson_type=artifact.lesson_type,
         topic=topic,
         sub_topic=artifact.sub_topic,
+        lesson_brief=lesson_brief,
         step_number=artifact.step_number,
         total_lessons=total_lessons,
         content=artifact.content,
@@ -163,6 +167,7 @@ def render_active_syllabus_summary(io: TerminalIO = DEFAULT_IO):
         io.print(
             f"[info]Next Up:[/info] Step {active_syllabus.current_lesson_index + 1}: {next_lesson.title}"
         )
+        io.print(f"[info]Brief:[/info] {next_lesson.brief}")
     elif active_syllabus.total_lessons > 0:
         io.print("[success]Congratulations! You've completed this syllabus.[/success]")
 
@@ -336,6 +341,7 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
         return ExecuteNextResult()
 
     step_number = active_syllabus.current_lesson_index + 1
+    active_step = active_syllabus.syllabus[active_syllabus.current_lesson_index]
     artifact = load_lesson_artifact(active_syllabus.id, step_number)
     if not artifact:
         io.print("[error]Failed to load the cached lesson artifact for this step.[/error]")
@@ -387,6 +393,7 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
         syllabus_id=active_syllabus.id,
         topic=active_syllabus.topic,
         total_lessons=active_syllabus.total_lessons,
+        lesson_brief=active_step.brief,
         interventions=interventions,
     )
 

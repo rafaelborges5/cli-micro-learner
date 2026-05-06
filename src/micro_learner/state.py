@@ -58,6 +58,7 @@ class NoteEntry(BaseModel):
     lesson_type: str
     topic: str
     sub_topic: str
+    lesson_brief: Optional[str] = None
     step_number: int
     total_lessons: int
     completed_at: str
@@ -340,9 +341,12 @@ def _format_lesson_entry(entry: NoteEntry) -> str:
         f"### {heading_prefix}Step {entry.step_number}: {entry.sub_topic}",
         f"- Completed: {entry.completed_at}",
         f"- Topic: {entry.topic} | Progress: {entry.step_number}/{entry.total_lessons}",
-        "",
-        entry.content.strip(),
     ]
+
+    if entry.lesson_brief:
+        lines.append(f"- Brief: {entry.lesson_brief.strip()}")
+
+    lines.extend(["", entry.content.strip()])
 
     if entry.lesson_type == "quiz" and entry.answer:
         lines.extend(["", f"**Answer:** {entry.answer.strip()}"])

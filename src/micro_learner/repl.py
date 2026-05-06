@@ -225,7 +225,17 @@ class REPLShell:
             if not is_syllabus_resumable(record):
                 statuses.append("Cache Incomplete")
             status_text = ", ".join(statuses) if statuses else "Ready"
-            label = f"{record.topic} | {record.current_lesson_index}/{record.total_lessons} | {completion} | {status_text}"
+            if (
+                record.current_lesson_index >= record.total_lessons
+                or record.current_lesson_index >= len(record.syllabus)
+            ):
+                next_title = "Done"
+            else:
+                next_title = record.syllabus[record.current_lesson_index].title
+            label = (
+                f"{record.topic} | {record.current_lesson_index}/{record.total_lessons} "
+                f"| {completion} | Next: {next_title} | {status_text}"
+            )
             candidates.append(
                 ResumeCandidate(
                     record_id=record.id,

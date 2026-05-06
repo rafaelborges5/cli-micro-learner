@@ -398,12 +398,20 @@ def render_syllabus_browser(records, active_syllabus_id: str | None) -> Table:
     table = Table(title="[header]Resume A Syllabus[/header]", expand=True)
     table.add_column("#", style="info", no_wrap=True)
     table.add_column("Topic", style="topic")
+    table.add_column("Next", style="info")
     table.add_column("Progress", style="success", no_wrap=True)
     table.add_column("Complete", style="info", no_wrap=True)
     table.add_column("Status", style="warning", no_wrap=True)
 
     for index, record in enumerate(records, start=1):
         completion = f"{(record.current_lesson_index / record.total_lessons * 100) if record.total_lessons else 0:.0f}%"
+        if (
+            record.current_lesson_index >= record.total_lessons
+            or record.current_lesson_index >= len(record.syllabus)
+        ):
+            next_title = "Done"
+        else:
+            next_title = record.syllabus[record.current_lesson_index].title
         status = []
         if record.id == active_syllabus_id:
             status.append("Active")
@@ -412,12 +420,13 @@ def render_syllabus_browser(records, active_syllabus_id: str | None) -> Table:
         table.add_row(
             str(index),
             record.topic,
+            next_title,
             f"{record.current_lesson_index}/{record.total_lessons}",
             completion,
             ", ".join(status) if status else "Available",
         )
 
-    table.add_row(str(len(records) + 1), "Start a new topic", "-", "-", "Action")
+    table.add_row(str(len(records) + 1), "Start a new topic", "-", "-", "-", "Action")
     return table
 
 

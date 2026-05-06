@@ -57,7 +57,7 @@ Tests should redirect these paths to temporary directories, following the existi
 
 Current roadmap focus is after the completed REPL/theme/cache work. Check `dev-plan.md` before starting feature work. At the time this file was last updated, the active planned areas are:
 
-- Phase 8: guided lesson briefs; long-form syllabus input, AI-generated titles, and lesson prompting from generated briefs are implemented, while UI/state polish and first-lesson structure rules remain.
+- Phase 8: guided lesson briefs; long-form syllabus input, AI-generated titles, lesson prompting from generated briefs, and UI/state brief handling are implemented, while first-lesson structure rules remain.
 - Phase 9: README, developer guide, changelog, docstrings, and examples.
 - Phase 10: continuous `/flow` lesson sessions.
 
