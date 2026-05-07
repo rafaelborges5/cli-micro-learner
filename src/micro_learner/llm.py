@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import random
 import re
 from typing import Callable, List, Optional
@@ -8,6 +9,15 @@ from copilot.session import PermissionHandler
 from pydantic import ValidationError
 from micro_learner.state import LessonArtifact, SyllabusStep
 from micro_learner.ui import console
+
+
+def choose_lesson_type(step_number: int, total_lessons: int) -> str:
+    """Chooses whether a generated step should be an explanation lesson or quiz."""
+    warmup_boundary = max(1, math.ceil(total_lessons / 3))
+    if step_number <= warmup_boundary:
+        return "lesson"
+    return "quiz" if random.random() < 0.3 else "lesson"
+
 
 class LLMManager:
     def __init__(self, model: str = "gpt-4.1"):
@@ -147,6 +157,7 @@ class LLMManager:
         """Pre-generates lesson artifacts for a syllabus subset."""
         artifacts: List[LessonArtifact] = []
         total_steps = len(syllabus)
+        full_total_lessons = max(total_steps, start_step + total_steps - 1)
 
         async with CopilotClient() as client:
             async with await client.create_session(
@@ -158,7 +169,7 @@ class LLMManager:
                     step_number = start_step + i
                     sub_topic = step.title
                     lesson_brief = step.brief
-                    lesson_type = "quiz" if random.random() < 0.3 else "lesson"
+                    lesson_type = choose_lesson_type(step_number, full_total_lessons)
                     if progress_callback:
                         progress_callback(i, total_steps, sub_topic, lesson_type)
 
