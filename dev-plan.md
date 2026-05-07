@@ -136,7 +136,7 @@ Goal: Let users guide learning with richer lesson descriptions instead of being 
 [x] AI-Generated Step Titles: Generate concise lesson titles from the long-form syllabus brief for use in progress bars, menus, and notes.
 [x] Prompting from Briefs: Use the generated per-step brief as the primary instructional context when generating the lesson so the user has more freedom to steer what is covered.
 [x] UI/State Updates: Update syllabus storage, resume views, status output, and note export so both the generated brief and short title are handled cleanly.
-[ ] Lesson Structure Rules: Improve lesson sequencing so early lessons establish context before testing recall, including disallowing quiz/question-first formatting for the first lesson.
+[x] Lesson Structure Rules: Improve lesson sequencing so early lessons establish context before testing recall, including disallowing quiz/question-first formatting for the first third of a syllabus.
 
 Phase 9: Documentation
 

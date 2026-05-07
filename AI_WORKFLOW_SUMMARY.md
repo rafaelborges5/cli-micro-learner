@@ -64,12 +64,12 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [ ] **7.5 Quiz Answer Regression Tests:** Add coverage for updated reveal behavior across CLI, REPL, and note export flows.
 - [ ] **7.6 Entrypoint/Packaging Cleanup:** Remove the current repo-root dependency on `PYTHONPATH=src` and verify development and installed entrypaths behave consistently.
 
-### Phase 8: Guided Lesson Briefs (PLANNED)
+### Phase 8: Guided Lesson Briefs (COMPLETE)
 - [x] **Long-Form Lesson Inputs:** New syllabus creation now prompts for a long-form learning brief and stores generated structured syllabus steps.
 - [x] **AI-Generated Step Titles:** Syllabus generation returns concise AI-generated titles for progress UI, menus, and notes.
 - [x] **Prompting from Briefs:** Lesson and quiz cache generation uses the generated per-step brief as the main instructional context.
 - [x] **UI/State Updates:** Status output and notes expose generated briefs, while resume views stay compact with generated titles.
-- [ ] **Lesson Structure Rules:** Early lessons should establish context before switching to question-first formatting.
+- [x] **Lesson Structure Rules:** Cached generation forces the first third of a syllabus to explanation lessons before allowing quiz/question-first formatting.
 
 ## 📂 Key Architecture
 - `src/micro_learner/main.py`: CLI entry point; launches REPL by default.
