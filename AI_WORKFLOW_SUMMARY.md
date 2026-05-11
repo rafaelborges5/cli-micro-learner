@@ -80,6 +80,15 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [x] **9.2 Developer Guide:** `CONTRIBUTING.md` — architecture, data flow, state layout, LLM prompt contracts, caching strategy, how to add a theme, how to run tests.
 - [x] **9.4 Inline Docstrings:** 26 public symbols documented across all 6 source modules (25 originally missing + `ExecuteNextResult` updated); all docstrings verified via `help()`.
 
+### Phase 10-A: Core Continuous Lesson Flow (COMPLETE)
+- [x] **10.1 /flow Command:** `/flow [n]` slash command runs up to n lessons back-to-back (default: all remaining); returns to REPL when done or syllabus ends.
+- [x] **10.2 Clean Lesson Transitions:** Screen clears between lessons via `clear_screen()` in `ui.py`.
+- [x] **10.3 Session Progress Header:** `render_flow_header()` prints a themed Rule (`Flow: Lesson N of M`) above each lesson.
+
+### Phase 10-B: Flow Controls & State (COMPLETE)
+- [x] **10.4 ESC-to-Pause:** Pressing Esc mid-lesson in `interactive_wait()` returns `(interventions, True)`; `execute_next()` returns `ExecuteNextResult(paused=True)` without advancing the index or exporting notes. Re-running `/flow` or `/next` resumes from the same lesson.
+- [x] **10.5 Flow State in Toolbar:** `REPLSessionState` tracks `flow_active`, `flow_current`, `flow_total`; `_toolbar_suffix()` shows `[Flow: N/M]` while a flow session is active; `_set_flow_state()` clears it in a `finally` block so it always reverts on exit or exception.
+
 ## 📂 Key Architecture
 - `src/micro_learner/main.py`: CLI entry point; launches REPL by default.
 - `src/micro_learner/repl.py`: Interactive shell loop, contextual completion, notifications, theme switching, and resume modal flow.
@@ -96,4 +105,4 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - **Active Topic Model:** `state.json` now stores `active_syllabus_id`, not inline lesson progress/content.
 - **Syllabus Step Model:** New syllabus records use structured steps with `title` and `brief`; legacy string-syllabus records are removed during bootstrap rather than migrated.
 - **Resume Safety:** Resumability is based on actual lesson artifacts on disk, not only the stored `cache_status`; fully cached records may be upgraded to `complete` lazily.
-- **Current Validation Baseline:** `./venv/bin/python3 -m unittest discover -s tests -v` — suite is green at 80 tests.
+- **Current Validation Baseline:** `./venv/bin/python3 -m unittest discover -s tests -v` — suite is green at 105 tests.

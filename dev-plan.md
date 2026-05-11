@@ -157,11 +157,23 @@ Phase 10: Continuous Lesson Flow
 
 Goal: Replace the command-per-lesson model with an opt-in session mode where the app drives the pacing, so the user stays focused on learning rather than operating the REPL.
 
-[ ] 10.1 /flow Command: Add a /flow [n] slash command that enters a continuous lesson session, running up to n lessons in sequence (default: all remaining). Returns to the REPL prompt when the session ends or the user escapes.
-[ ] 10.2 Clean Lesson Transitions: Between lessons in a flow session, clear or visually reset the terminal so each lesson feels like a fresh screen rather than an append to the scroll buffer.
-[ ] 10.3 Session Progress Header: Show a persistent session-level progress indicator during flow (e.g. "Session: 3 of 5 planned") separate from the overall syllabus toolbar, so the user knows how many lessons remain in the current run.
-[ ] 10.4 Pause and Resume Flow: Let the user press Escape (or a dedicated key) mid-session to pause and drop back to the REPL prompt. A /flow resume command or re-running /flow continues from where they left off.
-[ ] 10.5 Flow State in Toolbar: While a flow session is active, reflect that in the bottom toolbar suffix (e.g. "[Flow: 2/5]") so the session state is always visible.
+Phase 10-A: Core Flow
+
+[x] 10.1 /flow Command: Add a /flow [n] slash command that enters a continuous lesson session, running up to n lessons in sequence (default: all remaining). Returns to the REPL prompt when the session ends or the user escapes.
+[x] 10.2 Clean Lesson Transitions: Between lessons in a flow session, clear or visually reset the terminal so each lesson feels like a fresh screen rather than an append to the scroll buffer.
+[x] 10.3 Session Progress Header: Show a persistent session-level progress indicator during flow (e.g. "Session: 3 of 5 planned") separate from the overall syllabus toolbar, so the user knows how many lessons remain in the current run.
+
+Phase 10-B: Flow Controls & State
+
+[x] 10.4 Pause and Resume Flow: Let the user press Escape (or a dedicated key) mid-session to pause and drop back to the REPL prompt. A /flow resume command or re-running /flow continues from where they left off.
+[x] 10.5 Flow State in Toolbar: While a flow session is active, reflect that in the bottom toolbar suffix (e.g. "[Flow: 2/5]") so the session state is always visible.
+
+Phase 11: In-Lesson Q&A + Start UX Improvement
+
+Goal: Let users ask the AI ad-hoc questions while reading a lesson, and streamline syllabus creation so the long-form brief is the primary input.
+
+[ ] 11.1 In-Lesson Q&A: Add a Q keypress handler inside interactive_wait() so the user can type a question mid-lesson. The LLM is called with the current lesson artifact content as context; the answer is rendered in an inline panel. The loop returns to interactive_wait() after each answer so multiple questions can be asked. Not exported to notes.
+[ ] 11.2 Brief-First /start: Change /start so that when invoked with no argument (bare /start) it opens a multi-line input prompt for the learning brief first, then derives a short topic title from the brief via LLM. The existing /start <topic> path remains as a shortcut that pre-fills the topic name and still prompts for the brief.
 
 5. Next Steps
 
