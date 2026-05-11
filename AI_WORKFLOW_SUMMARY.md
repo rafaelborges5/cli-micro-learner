@@ -56,13 +56,13 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [x] **Interactive Resume Modal:** Bare `/resume` opens a prompt-toolkit live-search picker instead of the older numbered list flow.
 - [x] **Theme System:** `/theme` switches between `Modern`, `Classic`, and `Matrix`, persists the selection, and applies it across Rich output, toolbar, prompt, and resume UI.
 
-### Phase 7: Gamification (ON THE FENCE)
+### Phase 7: Gamification (COMPLETED)
 - [x] **7.1 Progress Bar Information Design:** Simplify what the bottom status bar should prioritize before changing its visuals.
-- [ ] **7.2 Progress Bar Rendering + Visual Pass:** Refactor toolbar/progress rendering and apply the redesigned bar across themes and tighter terminal widths.
-- [ ] **7.3 Quiz Answer Copy + Structure Rewrite:** Make revealed answers shorter, clearer, and more obviously review-oriented.
-- [ ] **7.4 Quiz Answer Display Implementation:** Improve the visual separation and formatting of question versus answer content in the active lesson flow.
-- [ ] **7.5 Quiz Answer Regression Tests:** Add coverage for updated reveal behavior across CLI, REPL, and note export flows.
-- [ ] **7.6 Entrypoint/Packaging Cleanup:** Remove the current repo-root dependency on `PYTHONPATH=src` and verify development and installed entrypaths behave consistently.
+- [x] **7.2 Progress Bar Rendering + Visual Pass:** Extracted `_compute_toolbar_segments` shared layout logic; bar width scales with terminal width; `FormattedText` and ANSI paths unified across all three themes.
+- [x] **7.3 Quiz Answer Copy + Structure Rewrite:** Tightened answer copy and export structure so revealed answers read as concise review guidance.
+- [x] **7.4 Quiz Answer Display Implementation:** Themed reveal separator and `render_answer` panel give clear visual weight to the question-versus-answer split.
+- [x] **7.5 Quiz Answer Regression Tests:** Regression coverage for answer reveal in CLI output and note export; missing-answer fallback covered.
+- [x] **7.6 Entrypoint/Packaging Cleanup:** Added `__main__.py`; `PYTHONPATH=src` no longer required; editable install, console script, and `python -m micro_learner` all verified.
 
 ### Phase 8: Guided Lesson Briefs (COMPLETE)
 - [x] **Long-Form Lesson Inputs:** New syllabus creation now prompts for a long-form learning brief and stores generated structured syllabus steps.
@@ -70,6 +70,15 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [x] **Prompting from Briefs:** Lesson and quiz cache generation uses the generated per-step brief as the main instructional context.
 - [x] **UI/State Updates:** Status output and notes expose generated briefs, while resume views stay compact with generated titles.
 - [x] **Lesson Structure Rules:** Cached generation forces the first third of a syllabus to explanation lessons before allowing quiz/question-first formatting.
+
+### Phase 9-A: User-Facing Documentation (COMPLETE)
+- [x] **9.1 README:** `README.md` at project root — purpose, install, CLI commands, REPL slash commands, keyboard shortcuts, note export format, theme options.
+- [x] **9.3 CHANGELOG:** `CHANGELOG.md` at project root — milestone-by-milestone summary of phases 1–8.
+- [x] **9.5 Code Examples:** ASCII screenshots embedded in README illustrating REPL, progress bar, theme switching, and quiz reveal.
+
+### Phase 9-B: Developer Documentation (NOT STARTED)
+- [ ] **9.2 Developer Guide:** `CONTRIBUTING.md` — architecture, data flow, state layout, LLM prompt design, caching strategy, how to add a theme, how to run tests.
+- [ ] **9.4 Inline Docstrings:** 25 public symbols currently undocumented across all 6 source modules; heaviest gaps in `ui.py` (8) and `repl.py` (8).
 
 ## 📂 Key Architecture
 - `src/micro_learner/main.py`: CLI entry point; launches REPL by default.

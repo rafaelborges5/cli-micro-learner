@@ -142,11 +142,16 @@ Phase 9: Documentation
 
 Goal: Produce comprehensive, professional documentation so the project is self-explanatory to new contributors and end users.
 
-[ ] 9.1 README: Write a full project README covering purpose, feature overview, installation (pip install -e .), all CLI commands and REPL slash commands, keyboard shortcuts (E/D during lessons), note export format, and theme options.
-[ ] 9.2 Developer Guide: Document the architecture (module responsibilities, data flow, state layout under ~/.micro_learner/), the LLM prompt design and caching strategy, how to add a new theme, and how to run the test suite.
-[ ] 9.3 CHANGELOG: Write a structured changelog grouping all delivered phases (1–7) by version or milestone, with a summary of what each phase changed.
-[ ] 9.4 Inline Docstrings: Audit all public functions and classes across main.py, logic.py, state.py, ui.py, llm.py, and repl.py; add or improve docstrings where the why or contract is non-obvious.
-[ ] 9.5 Code Examples in README: Add short terminal recordings or ASCII screenshots illustrating the REPL in action, the progress bar, theme switching, and a quiz reveal flow.
+Phase 9-A: User-Facing Documentation
+
+[x] 9.1 README: Write a full project README covering purpose, feature overview, installation (pip install -e .), all CLI commands and REPL slash commands, keyboard shortcuts (E/D during lessons), note export format, and theme options.
+[x] 9.3 CHANGELOG: Write a structured changelog grouping all delivered phases (1–8) by milestone, with a summary of what each phase changed.
+[x] 9.5 Code Examples in README: Add ASCII screenshots illustrating the REPL in action, the progress bar, theme switching, and a quiz reveal flow (embedded directly in the README).
+
+Phase 9-B: Developer Documentation
+
+[ ] 9.2 Developer Guide (CONTRIBUTING.md): Document the architecture (module responsibilities, data flow, state layout under ~/.micro_learner/), the LLM prompt design and caching strategy, how to add a new theme, and how to run the test suite.
+[ ] 9.4 Inline Docstrings: Audit all public functions and classes across main.py, logic.py, state.py, ui.py, llm.py, and repl.py; add or improve docstrings where the why or contract is non-obvious. (25 symbols currently undocumented — heaviest gaps in ui.py and repl.py.)
 
 Phase 10: Continuous Lesson Flow
 
