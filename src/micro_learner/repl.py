@@ -39,9 +39,11 @@ from micro_learner.state import (
 from micro_learner.ui import (
     build_prompt_message,
     build_prompt_style,
+    clear_screen,
     console,
     get_available_theme_names,
     get_current_theme,
+    render_flow_header,
     render_progress,
     render_toolbar,
     render_toolbar_formatted_text,
@@ -142,6 +144,9 @@ class REPLSessionState:
     pending_toasts: list[REPLToast] = None
     show_context_header: bool = True
     theme_name: str = "Modern"
+    flow_active: bool = False
+    flow_current: int = 0
+    flow_total: int = 0
 
     def __post_init__(self):
         if self.prefetch is None:
@@ -166,6 +171,7 @@ class REPLShell:
             "/resume": self.cmd_resume,
             "/start": self.cmd_start,
             "/next": self.cmd_next,
+            "/flow": self.cmd_flow,
             "/theme": self.cmd_theme,
         }
         self.completer = REPLCompleter(list(self.commands.keys()), self)
@@ -444,8 +450,16 @@ class REPLShell:
         execute_status(io=self.io)
         return True
 
+    def _set_flow_state(self, active: bool, current: int = 0, total: int = 0):
+        """Set or clear the flow session state used by the toolbar."""
+        self.state.flow_active = active
+        self.state.flow_current = current
+        self.state.flow_total = total
+
     def _toolbar_suffix(self) -> tuple[str, str]:
         """Build toolbar suffix text from the current view state."""
+        if self.state.flow_active:
+            return f"[Flow: {self.state.flow_current}/{self.state.flow_total}]", "info"
         if self.state.prefetch.status == "warming":
             status = self.state.prefetch.progress_label or "..."
             return f"[Caching {status}]", "warning"
@@ -463,6 +477,7 @@ class REPLShell:
         table_data = [
             ("/start <topic>", "Generate a new syllabus and begin learning."),
             ("/next", "Fetch your next bite-sized lesson or quiz."),
+            ("/flow [n]", "Run up to n lessons in sequence (default: all remaining)."),
             ("/status", "Show your current progress and active topic."),
             ("/resume", "Browse your saved syllabi and switch active topics."),
             ("/theme [name]", "View or switch the terminal theme."),
@@ -612,6 +627,54 @@ class REPLShell:
         result = await execute_next(io=self.io)
         self._refresh_view_state()
         self._handle_execute_next_result(result)
+        self._suppress_next_context_header()
+
+    async def cmd_flow(self, *args):
+        """Run up to n lessons in sequence without returning to the REPL prompt between them."""
+        n: int | None = None
+        if args:
+            try:
+                n = int(args[0])
+            except ValueError:
+                console.print("[warning]Usage: /flow [n][/warning]")
+                return
+
+        self._refresh_view_state()
+        record = load_active_syllabus()
+        if not record or not is_syllabus_resumable(record):
+            console.print("[warning]No resumable syllabus active. Run /start first.[/warning]")
+            return
+
+        remaining = record.total_lessons - record.current_lesson_index
+        if remaining == 0:
+            console.print("[info]Syllabus complete — nothing left to run.[/info]")
+            return
+
+        planned = min(n, remaining) if n is not None else remaining
+
+        self._set_flow_state(True, 0, planned)
+        completed = 0
+        try:
+            for i in range(planned):
+                self.state.flow_current = i + 1
+                clear_screen()
+                render_flow_header(i + 1, planned)
+                result = await execute_next(io=self.io)
+                self._refresh_view_state()
+                self._handle_execute_next_result(result)
+                if result and result.paused:
+                    console.print("[info]Flow paused — run /flow to continue.[/info]")
+                    break
+                completed += 1
+                record = load_active_syllabus()
+                if record and record.current_lesson_index >= record.total_lessons:
+                    break
+        finally:
+            self._set_flow_state(False)
+
+        if completed > 0:
+            console.print(f"[success]Flow complete — {completed} lesson(s) done.[/success]")
+        self._refresh_view_state()
         self._suppress_next_context_header()
 
     def _handle_execute_next_result(self, result: ExecuteNextResult | None):

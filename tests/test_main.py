@@ -360,5 +360,56 @@ class CliPersistenceTests(unittest.TestCase):
         self.assertEqual(state.load_state().active_syllabus_id, second.id)
 
 
+class TestExecuteNextPause(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        configure_state_paths(Path(self.temp_dir.name))
+        state.bootstrap()
+        self.runner = CliRunner()
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_esc_does_not_advance_lesson_index(self):
+        state.initialize_cached_topic(
+            "Pause Topic",
+            syllabus_steps("Step 1"),
+            [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
+        )
+
+        with patch('click.getchar', return_value='\x1b'):
+            result = self.runner.invoke(main.cli, ["next"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(state.load_active_syllabus().current_lesson_index, 0)
+
+    def test_esc_does_not_create_note_file(self):
+        state.initialize_cached_topic(
+            "Pause Topic",
+            syllabus_steps("Step 1"),
+            [state.LessonArtifact(step_number=1, sub_topic="Step 1", lesson_type="lesson", content="Body")],
+        )
+
+        with patch('click.getchar', return_value='\x1b'):
+            self.runner.invoke(main.cli, ["next"])
+
+        self.assertFalse(state.get_note_path("Pause Topic").exists())
+
+    def test_esc_on_quiz_reveal_prompt_does_not_advance(self):
+        state.initialize_cached_topic(
+            "Quiz Pause",
+            syllabus_steps("Step 1"),
+            [state.LessonArtifact(
+                step_number=1, sub_topic="Step 1", lesson_type="quiz",
+                content="Question?", answer="Answer text",
+            )],
+        )
+
+        with patch('click.getchar', return_value='\x1b'):
+            self.runner.invoke(main.cli, ["next"])
+
+        self.assertEqual(state.load_active_syllabus().current_lesson_index, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

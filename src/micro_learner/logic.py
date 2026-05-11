@@ -53,7 +53,7 @@ class TerminalIO:
 
     async def read_key(self, prompt_text: str) -> str:
         click.echo(click.style(
-            f"{prompt_text} (E: Analogy, D: Code, Any other key: Continue)",
+            f"{prompt_text} (E: Analogy, D: Code, Esc: Pause, Any other key: Continue)",
             fg="cyan",
         ))
         return await asyncio.to_thread(click.getchar)
@@ -71,10 +71,12 @@ class ExecuteNextResult:
         note_exported: bool = False,
         note_export_path: str | None = None,
         note_export_error: str | None = None,
+        paused: bool = False,
     ):
         self.note_exported = note_exported
         self.note_export_path = note_export_path
         self.note_export_error = note_export_error
+        self.paused = paused
 
 def get_random_status():
     """Returns a random encouraging status message."""
@@ -302,17 +304,19 @@ async def interactive_wait(
     content: str,
     prompt_text: str,
     io: TerminalIO = DEFAULT_IO,
-) -> list[dict]:
-    """Read keystrokes after a lesson; 'E' generates an analogy, 'D' a code example, any other key returns."""
+) -> tuple[list[dict], bool]:
+    """Read keystrokes after a lesson; 'E' generates an analogy, 'D' a code example, Esc pauses, any other key returns."""
     llm = LLMManager()
     interventions = []
     while True:
         char = await io.read_key(prompt_text)
-        
+
         if not char:
             break
-            
-        if char.lower() == 'e':
+
+        if char == '\x1b':
+            return interventions, True
+        elif char.lower() == 'e':
             with io.status("[warning]Thinking of an analogy...[/warning]"):
                 analogy = await llm.generate_analogy(topic, sub_topic, content)
             io.print(render_intervention("Simpler Analogy", analogy, "warning"))
@@ -324,7 +328,7 @@ async def interactive_wait(
             interventions.append({"type": "code", "content": code})
         else:
             break
-    return interventions
+    return interventions, False
 
 
 async def execute_next(io: TerminalIO = DEFAULT_IO):
@@ -355,13 +359,15 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
         io.print(render_lesson(f"Quiz: {artifact.sub_topic}", artifact.content, subtitle=progress_str))
         io.print(Rule(style="info"))
 
-        interventions = await interactive_wait(
+        interventions, paused = await interactive_wait(
             active_syllabus.topic,
             artifact.sub_topic,
             artifact.content,
             "Think about your answer, then press any key to reveal...",
             io=io,
         )
+        if paused:
+            return ExecuteNextResult(paused=True)
 
         with io.status("[success]Revealing answer...[/success]"):
             await asyncio.sleep(1)
@@ -369,25 +375,28 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
         io.print(Rule(style="success"))
         io.print(render_answer((artifact.answer or "No answer key provided.").strip()))
         io.print(Rule(style="info"))
-        interventions.extend(
-            await interactive_wait(
-                active_syllabus.topic,
-                artifact.sub_topic,
-                artifact.answer or "",
-                "Press any key to complete this lesson...",
-                io=io,
-            )
+        more_interventions, paused = await interactive_wait(
+            active_syllabus.topic,
+            artifact.sub_topic,
+            artifact.answer or "",
+            "Press any key to complete this lesson...",
+            io=io,
         )
+        interventions.extend(more_interventions)
+        if paused:
+            return ExecuteNextResult(paused=True)
     else:
         io.print(render_lesson(artifact.sub_topic, artifact.content, subtitle=progress_str))
         io.print(Rule(style="info"))
-        interventions = await interactive_wait(
+        interventions, paused = await interactive_wait(
             active_syllabus.topic,
             artifact.sub_topic,
             artifact.content,
             "Press any key to complete this lesson...",
             io=io,
         )
+        if paused:
+            return ExecuteNextResult(paused=True)
 
     note_entry = build_note_entry_from_artifact(
         artifact=artifact,

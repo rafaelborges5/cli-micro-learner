@@ -2,6 +2,7 @@ from io import StringIO
 from dataclasses import dataclass
 
 from rich.console import Console, Group
+from rich.rule import Rule
 from rich.theme import Theme
 from rich.panel import Panel
 from rich.table import Table
@@ -296,6 +297,22 @@ def render_answer(answer_text: str) -> Panel:
         expand=True,
         style=theme.answer_panel_style,
     )
+
+def clear_screen() -> None:
+    """Clear the terminal before a new lesson in flow mode."""
+    console.clear()
+
+
+def render_flow_header(session_num: int, total_planned: int) -> None:
+    """Print a session progress rule above each lesson in flow mode."""
+    theme = get_current_theme()
+    console.print(
+        Rule(
+            f"  Flow: Lesson {session_num} of {total_planned}  ",
+            style=theme.rich_styles["header"],
+        )
+    )
+
 
 def render_intervention(title: str, content: str, style: str) -> Panel:
     """Wraps an intervention (analogy or code) in a stylized Rich Panel."""

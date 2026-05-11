@@ -673,5 +673,150 @@ class REPLShellTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Caching", str(toolbar))
 
 
+class TestCmdFlow(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        configure_state_paths(Path(self.temp_dir.name))
+        state.bootstrap()
+        set_current_theme("Modern")
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def _make_shell(self):
+        return repl.REPLShell()
+
+    def _make_record(self, total=3, current=0):
+        steps = syllabus_steps(*[f"Step {i}" for i in range(1, total + 1)])
+        artifacts = [
+            state.LessonArtifact(step_number=i, sub_topic=f"Step {i}", lesson_type="lesson", content=f"Body {i}")
+            for i in range(1, total + 1)
+        ]
+        record = state.initialize_cached_topic(f"Flow Topic", steps, artifacts)
+        if current:
+            record.current_lesson_index = current
+            state.save_syllabus_record(record)
+        return record
+
+    async def test_flow_runs_n_lessons(self):
+        shell = self._make_shell()
+        self._make_record(total=5, current=0)
+
+        with patch.object(repl, "execute_next", AsyncMock(return_value=None)) as mock_next, \
+             patch.object(repl, "clear_screen"), \
+             patch.object(repl, "render_flow_header"), \
+             patch.object(repl.console, "print"):
+            await shell.cmd_flow("2")
+
+        self.assertEqual(mock_next.await_count, 2)
+
+    async def test_flow_defaults_to_all_remaining(self):
+        shell = self._make_shell()
+        record = self._make_record(total=3, current=0)
+
+        with patch.object(repl, "execute_next", AsyncMock(return_value=None)) as mock_next, \
+             patch.object(repl, "clear_screen"), \
+             patch.object(repl, "render_flow_header"), \
+             patch.object(repl.console, "print"):
+            await shell.cmd_flow()
+
+        self.assertEqual(mock_next.await_count, 3)
+
+    async def test_flow_caps_at_remaining_lessons(self):
+        shell = self._make_shell()
+        self._make_record(total=5, current=3)
+
+        with patch.object(repl, "execute_next", AsyncMock(return_value=None)) as mock_next, \
+             patch.object(repl, "clear_screen"), \
+             patch.object(repl, "render_flow_header"), \
+             patch.object(repl.console, "print"):
+            await shell.cmd_flow("10")
+
+        self.assertEqual(mock_next.await_count, 2)
+
+    async def test_flow_no_active_syllabus(self):
+        shell = self._make_shell()
+
+        with patch.object(repl, "execute_next", AsyncMock()) as mock_next, \
+             patch.object(repl.console, "print") as mock_print:
+            await shell.cmd_flow()
+
+        mock_next.assert_not_awaited()
+        self.assertTrue(mock_print.called)
+
+    async def test_flow_syllabus_already_complete(self):
+        shell = self._make_shell()
+        self._make_record(total=2, current=2)
+
+        with patch.object(repl, "execute_next", AsyncMock()) as mock_next, \
+             patch.object(repl, "clear_screen"), \
+             patch.object(repl, "render_flow_header"), \
+             patch.object(repl.console, "print") as mock_print:
+            await shell.cmd_flow()
+
+        mock_next.assert_not_awaited()
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        self.assertIn("nothing left", printed)
+
+    async def test_flow_invalid_argument(self):
+        shell = self._make_shell()
+        self._make_record(total=3, current=0)
+
+        with patch.object(repl, "execute_next", AsyncMock()) as mock_next, \
+             patch.object(repl.console, "print") as mock_print:
+            await shell.cmd_flow("abc")
+
+        mock_next.assert_not_awaited()
+        printed = " ".join(str(c) for c in mock_print.call_args_list)
+        self.assertIn("Usage", printed)
+
+    def test_flow_toolbar_shows_flow_state(self):
+        shell = self._make_shell()
+        self._make_record(total=5, current=0)
+        shell._set_flow_state(True, 2, 5)
+
+        toolbar = shell._get_toolbar()
+
+        self.assertIn("Flow: 2/5", str(toolbar))
+
+    async def test_flow_toolbar_cleared_after_completion(self):
+        shell = self._make_shell()
+        self._make_record(total=1, current=0)
+
+        with patch.object(repl, "execute_next", AsyncMock(return_value=None)), \
+             patch.object(repl, "clear_screen"), \
+             patch.object(repl, "render_flow_header"), \
+             patch.object(repl.console, "print"):
+            await shell.cmd_flow("1")
+
+        self.assertFalse(shell.state.flow_active)
+
+    async def test_flow_breaks_on_pause(self):
+        from micro_learner.logic import ExecuteNextResult
+        shell = self._make_shell()
+        self._make_record(total=5, current=0)
+
+        with patch.object(repl, "execute_next", AsyncMock(return_value=ExecuteNextResult(paused=True))) as mock_next, \
+             patch.object(repl, "clear_screen"), \
+             patch.object(repl, "render_flow_header"), \
+             patch.object(repl.console, "print"):
+            await shell.cmd_flow("3")
+
+        self.assertEqual(mock_next.await_count, 1)
+
+    async def test_flow_toolbar_cleared_on_pause(self):
+        from micro_learner.logic import ExecuteNextResult
+        shell = self._make_shell()
+        self._make_record(total=5, current=0)
+
+        with patch.object(repl, "execute_next", AsyncMock(return_value=ExecuteNextResult(paused=True))), \
+             patch.object(repl, "clear_screen"), \
+             patch.object(repl, "render_flow_header"), \
+             patch.object(repl.console, "print"):
+            await shell.cmd_flow("3")
+
+        self.assertFalse(shell.state.flow_active)
+
+
 if __name__ == "__main__":
     unittest.main()
