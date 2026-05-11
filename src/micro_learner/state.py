@@ -16,22 +16,30 @@ SETTINGS_FILE = APP_DIR / "settings.json"
 
 
 class GlobalState(BaseModel):
+    """Persisted global state; only stores the active syllabus ID pointer."""
+
     model_config = ConfigDict(extra="forbid")
     active_syllabus_id: Optional[str] = None
 
 
 class AppSettings(BaseModel):
+    """Persisted user preferences; currently only the selected theme name."""
+
     model_config = ConfigDict(extra="forbid")
     theme_name: str = "Modern"
 
 
 class SyllabusStep(BaseModel):
+    """A single curriculum step with a short display title and a long instructional brief."""
+
     model_config = ConfigDict(extra="forbid")
     title: str
     brief: str
 
 
 class SyllabusRecord(BaseModel):
+    """Per-topic record storing the syllabus outline, lesson progress, and cache status ('pending' or 'complete')."""
+
     model_config = ConfigDict(extra="forbid")
     id: str
     topic: str
@@ -44,6 +52,8 @@ class SyllabusRecord(BaseModel):
 
 
 class LessonArtifact(BaseModel):
+    """Cached lesson or quiz; for quizzes, content holds the question and answer holds the text after the ANSWER: split."""
+
     model_config = ConfigDict(extra="forbid")
     step_number: int
     sub_topic: str
@@ -53,6 +63,8 @@ class LessonArtifact(BaseModel):
 
 
 class NoteEntry(BaseModel):
+    """Export payload for one lesson; interventions is a list of {'type': 'analogy'|'code', 'content': str} dicts."""
+
     model_config = ConfigDict(extra="forbid")
     syllabus_id: str
     lesson_type: str

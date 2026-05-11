@@ -59,6 +59,8 @@ class REPLIO(TerminalIO):
 
 
 class REPLCompleter(Completer):
+    """Provide tab completions for slash commands and topic names; topic suggestions for /start and /resume only."""
+
     def __init__(self, command_names: list[str], shell: "REPLShell"):
         self.command_names = sorted(command_names)
         self.shell = shell
@@ -93,6 +95,8 @@ class REPLCompleter(Completer):
 
 @dataclass
 class ActiveTopicView:
+    """Read-only snapshot of the active syllabus used to populate the toolbar and context header."""
+
     topic: str
     current_lesson_index: int
     total_lessons: int
@@ -101,18 +105,24 @@ class ActiveTopicView:
 
 @dataclass
 class PrefetchViewState:
+    """Tracks background cache generation; status is 'idle', 'warming', 'complete', or 'failed'."""
+
     status: Literal["idle", "warming", "complete", "failed"] = "idle"
     progress_label: str = ""
 
 
 @dataclass
 class REPLToast:
+    """A transient notification message with a Rich style name ('success', 'warning', 'error', 'info')."""
+
     message: str
     style: Literal["success", "warning", "error", "info"] = "info"
 
 
 @dataclass
 class ResumeCandidate:
+    """A resume-picker entry built from a SyllabusRecord; label is a pre-formatted single-line summary."""
+
     record_id: str
     topic: str
     label: str
@@ -123,6 +133,8 @@ class ResumeCandidate:
 
 @dataclass
 class REPLSessionState:
+    """Centralized view-model for display state; kept separate from shell mechanics so the toolbar and modals share one source of truth."""
+
     active_topic: ActiveTopicView | None = None
     prefetch: PrefetchViewState = None
     completion_topics: list[str] = None
@@ -143,6 +155,8 @@ class REPLSessionState:
 
 
 class REPLShell:
+    """Main interactive shell: routes slash commands, manages view state, coordinates background caching and theme persistence."""
+
     def __init__(self):
         self.commands = {
             "/help": self.cmd_help,
@@ -689,5 +703,6 @@ class REPLShell:
 
 
 async def start_repl():
+    """Async entry point: instantiate REPLShell and run the interactive loop."""
     shell = REPLShell()
     await shell.run()

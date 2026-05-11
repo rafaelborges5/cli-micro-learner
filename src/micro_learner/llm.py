@@ -20,6 +20,8 @@ def choose_lesson_type(step_number: int, total_lessons: int) -> str:
 
 
 class LLMManager:
+    """Session-based LLM client; reuses a single Copilot session across a batch to reduce cold-start latency."""
+
     def __init__(self, model: str = "gpt-4.1"):
         self.model = model
         self._session_request = None

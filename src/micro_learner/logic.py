@@ -303,6 +303,7 @@ async def interactive_wait(
     prompt_text: str,
     io: TerminalIO = DEFAULT_IO,
 ) -> list[dict]:
+    """Read keystrokes after a lesson; 'E' generates an analogy, 'D' a code example, any other key returns."""
     llm = LLMManager()
     interventions = []
     while True:

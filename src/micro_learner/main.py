@@ -56,6 +56,7 @@ async def shell():
     await start_repl()
 
 def main():
+    """Console script entry point; delegates to the Click CLI group."""
     cli()
 
 if __name__ == "__main__":

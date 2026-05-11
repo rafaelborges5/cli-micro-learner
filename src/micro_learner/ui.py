@@ -15,6 +15,8 @@ from prompt_toolkit.styles import Style
 
 @dataclass(frozen=True)
 class UITheme:
+    """Frozen container for one terminal theme; all 13 fields are required — see CONTRIBUTING.md for how to add a theme."""
+
     name: str
     rich_styles: dict[str, str]
     prompt_toolkit_styles: dict[str, str]
@@ -218,10 +220,12 @@ console = Console(theme=Theme(THEMES[DEFAULT_THEME_NAME].rich_styles))
 
 
 def get_available_theme_names() -> list[str]:
+    """Return the names of all registered themes in declaration order."""
     return list(THEMES.keys())
 
 
 def resolve_theme_name(theme_name: str | None) -> str | None:
+    """Return the canonical theme name for a case-insensitive input, or None if not found."""
     if not theme_name:
         return None
     for name in THEMES:
@@ -231,6 +235,7 @@ def resolve_theme_name(theme_name: str | None) -> str | None:
 
 
 def get_theme(theme_name: str | None = None) -> UITheme:
+    """Return a UITheme by name, or the default theme when the name is absent or unrecognised."""
     resolved_name = resolve_theme_name(theme_name)
     if not resolved_name:
         return THEMES[DEFAULT_THEME_NAME]
@@ -238,10 +243,12 @@ def get_theme(theme_name: str | None = None) -> UITheme:
 
 
 def get_current_theme() -> UITheme:
+    """Return the active theme from module-level global state."""
     return get_theme(_active_theme_name)
 
 
 def set_current_theme(theme_name: str) -> UITheme:
+    """Activate a theme globally; also mutates the Rich console's live theme stack so output changes immediately."""
     global _active_theme_name
     theme = get_theme(theme_name)
     _active_theme_name = theme.name
@@ -251,11 +258,13 @@ def set_current_theme(theme_name: str) -> UITheme:
 
 
 def build_prompt_style(theme_name: str | None = None) -> Style:
+    """Build a prompt_toolkit Style for the REPL input field, dialogs, and bottom toolbar."""
     theme = get_theme(theme_name) if theme_name else get_current_theme()
     return Style.from_dict(theme.prompt_toolkit_styles)
 
 
 def build_prompt_message(theme_name: str | None = None) -> str:
+    """Build the HTML-formatted REPL prompt string with theme-coloured label and symbol."""
     theme = get_theme(theme_name) if theme_name else get_current_theme()
     return (
         f'<style color="{theme.prompt_label_color}">micro-learner</style> '
@@ -277,6 +286,7 @@ def render_lesson(title: str, content: str, subtitle: str = None) -> Panel:
     )
 
 def render_answer(answer_text: str) -> Panel:
+    """Wrap a quiz answer in a success-styled Rich Panel with a '✓ Answer' title."""
     theme = get_current_theme()
     return Panel(
         Markdown(answer_text),
