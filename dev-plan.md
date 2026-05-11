@@ -172,8 +172,8 @@ Phase 11: In-Lesson Q&A + Start UX Improvement
 
 Goal: Let users ask the AI ad-hoc questions while reading a lesson, and streamline syllabus creation so the long-form brief is the primary input.
 
-[ ] 11.1 In-Lesson Q&A: Add a Q keypress handler inside interactive_wait() so the user can type a question mid-lesson. The LLM is called with the current lesson artifact content as context; the answer is rendered in an inline panel. The loop returns to interactive_wait() after each answer so multiple questions can be asked. Not exported to notes.
-[ ] 11.2 Brief-First /start: Change /start so that when invoked with no argument (bare /start) it opens a multi-line input prompt for the learning brief first, then derives a short topic title from the brief via LLM. The existing /start <topic> path remains as a shortcut that pre-fills the topic name and still prompts for the brief.
+[x] 11.1 In-Lesson Q&A: Add a Q keypress handler inside interactive_wait() so the user can type a question mid-lesson. The LLM is called with the current lesson artifact content as context; the answer is rendered in an inline panel. The loop returns to interactive_wait() after each answer so multiple questions can be asked. Not exported to notes.
+[x] 11.2 Brief-First /start: Change /start so that when invoked with no argument (bare /start) it opens a multi-line input prompt for the learning brief first, then derives a short topic title from the brief via LLM. The existing /start <topic> path remains as a shortcut that pre-fills the topic name and still prompts for the brief.
 
 5. Next Steps
 
