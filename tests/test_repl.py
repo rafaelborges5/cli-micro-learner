@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from prompt_toolkit.document import Document
 
 from micro_learner import repl, state
+from micro_learner.llm import LLMManager
 from micro_learner.ui import (
     THEMES,
     _compute_toolbar_segments,
@@ -816,6 +817,38 @@ class TestCmdFlow(unittest.IsolatedAsyncioTestCase):
             await shell.cmd_flow("3")
 
         self.assertFalse(shell.state.flow_active)
+
+
+class TestInteractiveWaitQA(unittest.IsolatedAsyncioTestCase):
+    def _make_io(self, read_keys, prompt_return=""):
+        from micro_learner.logic import TerminalIO
+        from unittest.mock import MagicMock
+        io = MagicMock(spec=TerminalIO)
+        io.read_key = AsyncMock(side_effect=read_keys)
+        io.prompt_text = AsyncMock(return_value=prompt_return)
+        io.status = MagicMock(return_value=MagicMock(__enter__=MagicMock(return_value=None), __exit__=MagicMock(return_value=False)))
+        io.print = MagicMock()
+        return io
+
+    async def test_q_calls_generate_answer_and_does_not_add_intervention(self):
+        from micro_learner.logic import interactive_wait
+        io = self._make_io(['q', '\n'], prompt_return="What does ownership mean?")
+
+        with patch.object(LLMManager, "generate_answer", new_callable=AsyncMock, return_value="It means X.") as mock_answer:
+            interventions, paused = await interactive_wait("Rust", "Ownership", "Lesson body", "Continue...", io=io)
+
+        mock_answer.assert_awaited_once_with("Rust", "Ownership", "Lesson body", "What does ownership mean?")
+        self.assertEqual(interventions, [])
+        self.assertFalse(paused)
+
+    async def test_q_skips_empty_question(self):
+        from micro_learner.logic import interactive_wait
+        io = self._make_io(['q', '\n'], prompt_return="   ")
+
+        with patch.object(LLMManager, "generate_answer", new_callable=AsyncMock) as mock_answer:
+            await interactive_wait("Rust", "Ownership", "Lesson body", "Continue...", io=io)
+
+        mock_answer.assert_not_awaited()
 
 
 if __name__ == "__main__":

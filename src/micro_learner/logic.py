@@ -53,7 +53,7 @@ class TerminalIO:
 
     async def read_key(self, prompt_text: str) -> str:
         click.echo(click.style(
-            f"{prompt_text} (E: Analogy, D: Code, Esc: Pause, Any other key: Continue)",
+            f"{prompt_text} (E: Analogy, D: Code, Q: Question, Esc: Pause, Any other key: Continue)",
             fg="cyan",
         ))
         return await asyncio.to_thread(click.getchar)
@@ -326,6 +326,12 @@ async def interactive_wait(
                 code = await llm.generate_code_example(topic, sub_topic, content)
             io.print(render_intervention("Code Example", code, "info"))
             interventions.append({"type": "code", "content": code})
+        elif char.lower() == 'q':
+            question = await io.prompt_text("Your question")
+            if question.strip():
+                with io.status("[info]Thinking...[/info]"):
+                    answer = await llm.generate_answer(topic, sub_topic, content, question)
+                io.print(render_intervention("Answer", answer, "info"))
         else:
             break
     return interventions, False

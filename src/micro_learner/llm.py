@@ -148,6 +148,26 @@ class LLMManager:
         prompt = f"Main Topic: {topic}\nSub-Topic: {subtopic}\nOriginal Lesson:\n{lesson_content}"
         return await self.get_response(prompt, system_prompt)
 
+    async def generate_answer(
+        self,
+        topic: str,
+        sub_topic: str,
+        lesson_content: str,
+        question: str,
+    ) -> str:
+        """Answers a student's ad-hoc question using the current lesson as context."""
+        system_prompt = (
+            "You are a patient tutor. The student has a question about the lesson they just read. "
+            "Answer concisely (2-4 sentences). Stay focused on the lesson context. "
+            "Use Markdown for formatting."
+        )
+        prompt = (
+            f"Main Topic: {topic}\nSub-Topic: {sub_topic}\n"
+            f"Lesson Content:\n{lesson_content}\n\n"
+            f"Student question: {question}"
+        )
+        return await self.get_response(prompt, system_prompt)
+
     async def generate_cached_lessons(
         self,
         topic: str,
