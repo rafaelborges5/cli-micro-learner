@@ -411,5 +411,62 @@ class TestExecuteNextPause(unittest.TestCase):
         self.assertEqual(state.load_active_syllabus().current_lesson_index, 0)
 
 
+class TestExecuteBack(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        configure_state_paths(Path(self.temp_dir.name))
+        state.bootstrap()
+        self.runner = CliRunner()
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def _make_topic(self, current=0, total=3):
+        record = state.initialize_cached_topic(
+            "Back Topic",
+            syllabus_steps(*[f"Step {i}" for i in range(1, total + 1)]),
+            [
+                state.LessonArtifact(step_number=i, sub_topic=f"Step {i}", lesson_type="lesson", content=f"Body {i}")
+                for i in range(1, total + 1)
+            ],
+        )
+        record.current_lesson_index = current
+        state.save_syllabus_record(record)
+        return record
+
+    def test_back_decrements_lesson_index(self):
+        self._make_topic(current=2)
+        result = self.runner.invoke(main.cli, ["back"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(state.load_active_syllabus().current_lesson_index, 1)
+        self.assertIn("Rolled back 1 step", result.output)
+
+    def test_back_n_steps(self):
+        self._make_topic(current=3)
+        result = self.runner.invoke(main.cli, ["back", "2"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(state.load_active_syllabus().current_lesson_index, 1)
+        self.assertIn("Rolled back 2 step", result.output)
+
+    def test_back_clamps_at_zero(self):
+        self._make_topic(current=1)
+        result = self.runner.invoke(main.cli, ["back", "5"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(state.load_active_syllabus().current_lesson_index, 0)
+        self.assertIn("Rolled back 1 step", result.output)
+
+    def test_back_at_zero_shows_message(self):
+        self._make_topic(current=0)
+        result = self.runner.invoke(main.cli, ["back"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(state.load_active_syllabus().current_lesson_index, 0)
+        self.assertIn("Already at the first lesson", result.output)
+
+    def test_back_with_no_active_syllabus(self):
+        result = self.runner.invoke(main.cli, ["back"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("No active topic", result.output)
+
+
 if __name__ == "__main__":
     unittest.main()

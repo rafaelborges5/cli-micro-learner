@@ -452,3 +452,38 @@ async def execute_next(io: TerminalIO = DEFAULT_IO):
         note_exported=True,
         note_export_path=str(note_path),
     )
+
+
+def execute_back(steps: int = 1, io: TerminalIO = DEFAULT_IO) -> None:
+    """Roll the active syllabus back by `steps` lessons."""
+    if steps < 1:
+        io.print("[warning]Steps must be at least 1.[/warning]")
+        return
+
+    active_syllabus = load_active_syllabus()
+    if not active_syllabus or not active_syllabus.syllabus:
+        io.print("[warning]No active topic. Use 'micro-learner start <topic>' first.[/warning]")
+        return
+
+    if active_syllabus.current_lesson_index == 0:
+        io.print("[info]Already at the first lesson — nothing to roll back.[/info]")
+        return
+
+    actual = min(steps, active_syllabus.current_lesson_index)
+    active_syllabus.current_lesson_index -= actual
+    active_syllabus.updated_at = datetime.now(timezone.utc).isoformat()
+    save_syllabus_record(active_syllabus)
+
+    io.print(f"[success]Rolled back {actual} step(s).[/success]")
+    io.print(
+        render_progress(
+            active_syllabus.current_lesson_index,
+            active_syllabus.total_lessons,
+            active_syllabus.topic,
+        )
+    )
+    next_lesson = active_syllabus.syllabus[active_syllabus.current_lesson_index]
+    io.print(
+        f"[info]Next Up:[/info] Step {active_syllabus.current_lesson_index + 1}: {next_lesson.title}"
+    )
+    io.print(f"[info]Brief:[/info] {next_lesson.brief}")

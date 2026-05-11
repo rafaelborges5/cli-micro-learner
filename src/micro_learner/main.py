@@ -7,6 +7,7 @@ from micro_learner.logic import (
     execute_resume,
     execute_start,
     execute_next,
+    execute_back,
 )
 
 def coro(f):
@@ -48,6 +49,12 @@ async def start(topic):
 async def next():
     """Fetch and display the next lesson in the current syllabus."""
     await execute_next()
+
+@cli.command()
+@click.argument('steps', default=1, required=False)
+def back(steps):
+    """Roll back the active syllabus by n lessons (default: 1)."""
+    execute_back(steps=steps)
 
 @cli.command()
 @coro

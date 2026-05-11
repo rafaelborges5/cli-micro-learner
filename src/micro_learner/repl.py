@@ -20,6 +20,7 @@ from micro_learner.llm import LLMManager
 from micro_learner.logic import (
     ExecuteNextResult,
     TerminalIO,
+    execute_back,
     execute_next,
     execute_start,
     execute_start_from_brief,
@@ -172,6 +173,7 @@ class REPLShell:
             "/resume": self.cmd_resume,
             "/start": self.cmd_start,
             "/next": self.cmd_next,
+            "/back": self.cmd_back,
             "/flow": self.cmd_flow,
             "/theme": self.cmd_theme,
         }
@@ -478,6 +480,7 @@ class REPLShell:
         table_data = [
             ("/start <topic>", "Generate a new syllabus and begin learning."),
             ("/next", "Fetch your next bite-sized lesson or quiz."),
+            ("/back [n]", "Roll back n lessons in the current syllabus (default: 1)."),
             ("/flow [n]", "Run up to n lessons in sequence (default: all remaining)."),
             ("/status", "Show your current progress and active topic."),
             ("/resume", "Browse your saved syllabi and switch active topics."),
@@ -629,6 +632,19 @@ class REPLShell:
         result = await execute_next(io=self.io)
         self._refresh_view_state()
         self._handle_execute_next_result(result)
+        self._suppress_next_context_header()
+
+    async def cmd_back(self, *args):
+        """Rolls back the active syllabus by n lessons."""
+        steps = 1
+        if args:
+            try:
+                steps = int(args[0])
+            except ValueError:
+                console.print("[warning]Usage: /back [n][/warning]")
+                return
+        execute_back(steps=steps, io=self.io)
+        self._refresh_view_state()
         self._suppress_next_context_header()
 
     async def cmd_flow(self, *args):
