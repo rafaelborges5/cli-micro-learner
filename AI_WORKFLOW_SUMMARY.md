@@ -76,9 +76,9 @@ A terminal-based micro-learning application that generates structured 15-step sy
 - [x] **9.3 CHANGELOG:** `CHANGELOG.md` at project root — milestone-by-milestone summary of phases 1–8.
 - [x] **9.5 Code Examples:** ASCII screenshots embedded in README illustrating REPL, progress bar, theme switching, and quiz reveal.
 
-### Phase 9-B: Developer Documentation (NOT STARTED)
-- [ ] **9.2 Developer Guide:** `CONTRIBUTING.md` — architecture, data flow, state layout, LLM prompt design, caching strategy, how to add a theme, how to run tests.
-- [ ] **9.4 Inline Docstrings:** 25 public symbols currently undocumented across all 6 source modules; heaviest gaps in `ui.py` (8) and `repl.py` (8).
+### Phase 9-B: Developer Documentation (COMPLETE)
+- [x] **9.2 Developer Guide:** `CONTRIBUTING.md` — architecture, data flow, state layout, LLM prompt contracts, caching strategy, how to add a theme, how to run tests.
+- [x] **9.4 Inline Docstrings:** 26 public symbols documented across all 6 source modules (25 originally missing + `ExecuteNextResult` updated); all docstrings verified via `help()`.
 
 ## 📂 Key Architecture
 - `src/micro_learner/main.py`: CLI entry point; launches REPL by default.

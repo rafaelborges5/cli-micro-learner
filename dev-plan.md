@@ -150,8 +150,8 @@ Phase 9-A: User-Facing Documentation
 
 Phase 9-B: Developer Documentation
 
-[ ] 9.2 Developer Guide (CONTRIBUTING.md): Document the architecture (module responsibilities, data flow, state layout under ~/.micro_learner/), the LLM prompt design and caching strategy, how to add a new theme, and how to run the test suite.
-[ ] 9.4 Inline Docstrings: Audit all public functions and classes across main.py, logic.py, state.py, ui.py, llm.py, and repl.py; add or improve docstrings where the why or contract is non-obvious. (25 symbols currently undocumented — heaviest gaps in ui.py and repl.py.)
+[x] 9.2 Developer Guide (CONTRIBUTING.md): Document the architecture (module responsibilities, data flow, state layout under ~/.micro_learner/), the LLM prompt design and caching strategy, how to add a new theme, and how to run the test suite.
+[x] 9.4 Inline Docstrings: Audit all public functions and classes across main.py, logic.py, state.py, ui.py, llm.py, and repl.py; add or improve docstrings where the why or contract is non-obvious. (25 symbols currently undocumented — heaviest gaps in ui.py and repl.py.)
 
 Phase 10: Continuous Lesson Flow
 
