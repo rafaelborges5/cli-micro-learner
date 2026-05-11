@@ -168,6 +168,14 @@ class LLMManager:
         )
         return await self.get_response(prompt, system_prompt)
 
+    async def derive_topic_from_brief(self, brief: str) -> str:
+        """Derives a short topic title from a long-form learning brief."""
+        system_prompt = (
+            "You are a curriculum designer. Given a learning brief, output a concise topic title. "
+            "3 to 7 words, no punctuation, no quotes. Return only the title."
+        )
+        return (await self.get_response(brief, system_prompt)).strip()
+
     async def generate_cached_lessons(
         self,
         topic: str,

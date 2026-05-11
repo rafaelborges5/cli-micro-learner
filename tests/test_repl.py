@@ -851,5 +851,38 @@ class TestInteractiveWaitQA(unittest.IsolatedAsyncioTestCase):
         mock_answer.assert_not_awaited()
 
 
+class TestCmdStartBriefFirst(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        configure_state_paths(Path(self.temp_dir.name))
+        state.bootstrap()
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    async def test_bare_start_calls_execute_start_from_brief(self):
+        shell = repl.REPLShell()
+        with patch.object(repl, "execute_start_from_brief", new_callable=AsyncMock, return_value=None) as mock_brief, \
+             patch.object(repl, "execute_start", new_callable=AsyncMock) as mock_start:
+            await shell.cmd_start()
+        mock_brief.assert_awaited_once()
+        mock_start.assert_not_awaited()
+
+    async def test_bare_start_no_result_does_not_start_prefetch(self):
+        shell = repl.REPLShell()
+        with patch.object(repl, "execute_start_from_brief", new_callable=AsyncMock, return_value=None):
+            await shell.cmd_start()
+        self.assertIsNone(shell.prefetch_task)
+
+    async def test_start_with_topic_calls_execute_start_not_from_brief(self):
+        shell = repl.REPLShell()
+        with patch.object(repl, "execute_start", new_callable=AsyncMock, return_value=None) as mock_start, \
+             patch.object(repl, "execute_start_from_brief", new_callable=AsyncMock) as mock_brief:
+            await shell.cmd_start("rust", "ownership")
+        mock_start.assert_awaited_once()
+        self.assertEqual(mock_start.call_args.args[0], "rust ownership")
+        mock_brief.assert_not_awaited()
+
+
 if __name__ == "__main__":
     unittest.main()

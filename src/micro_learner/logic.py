@@ -213,12 +213,14 @@ async def execute_start(
     topic: str,
     background: bool = False,
     io: TerminalIO = DEFAULT_IO,
+    brief: str | None = None,
 ) -> tuple[list[SyllabusStep], str] | None:
-    """Logic for the start command. 
+    """Logic for the start command.
     If background=True, generates only the first lesson and returns the remainder.
     """
     llm = LLMManager()
-    brief = (await io.prompt_text("Describe what this syllabus should teach, in detail")).strip()
+    if brief is None:
+        brief = (await io.prompt_text("Describe what this syllabus should teach, in detail")).strip()
 
     if not brief:
         io.print("[error]A long-form syllabus brief is required.[/error]")
@@ -296,6 +298,21 @@ async def execute_start(
         delete_syllabus_record(record.id)
         io.print(f"[error]Failed to initialize cached lessons: {exc}[/error]")
         return None
+
+
+async def execute_start_from_brief(
+    io: TerminalIO = DEFAULT_IO,
+) -> tuple[list[SyllabusStep], str] | None:
+    """Prompt for a learning brief, derive a topic title via LLM, then start."""
+    llm = LLMManager()
+    brief = (await io.prompt_text("Describe what you want to learn, in detail")).strip()
+    if not brief:
+        io.print("[error]A learning brief is required.[/error]")
+        return None
+    with io.status("[info]Deriving topic title...[/info]"):
+        topic = await llm.derive_topic_from_brief(brief)
+    io.print(f"[info]Topic:[/info] {topic}")
+    return await execute_start(topic, background=True, io=io, brief=brief)
 
 
 async def interactive_wait(

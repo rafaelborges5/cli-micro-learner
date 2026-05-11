@@ -22,6 +22,7 @@ from micro_learner.logic import (
     TerminalIO,
     execute_next,
     execute_start,
+    execute_start_from_brief,
     execute_status,
 )
 from micro_learner.state import (
@@ -555,16 +556,17 @@ class REPLShell:
 
     async def cmd_start(self, *args):
         """Starts a new topic."""
-        if not args:
-            console.print("[error]Usage: /start <topic>[/error]")
-            return
-
         if self.prefetch_task and not self.prefetch_task.done():
             self.prefetch_task.cancel()
         self._reset_prefetch_view()
 
-        topic = " ".join(args)
-        result = await execute_start(topic, background=True, io=self.io)
+        if not args:
+            result = await execute_start_from_brief(io=self.io)
+            topic = load_active_syllabus().topic if result else ""
+        else:
+            topic = " ".join(args)
+            result = await execute_start(topic, background=True, io=self.io)
+
         self._refresh_view_state()
         if result:
             remainder, record_id = result
