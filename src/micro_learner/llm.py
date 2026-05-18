@@ -103,7 +103,7 @@ class LLMManager:
         """Generates a micro-lesson for a specific sub-topic."""
         system_prompt = (
             "You are a master educator. Explain the provided sub-topic within the broader context of the main topic. "
-            "Keep the explanation concise (approximately 200 words), high-impact, and clear. "
+            "Keep the explanation concise (approximately 150 words), high-impact, and clear. "
             "Use Markdown for formatting (bold, code blocks, lists). "
             "Do not use conversational filler like 'Sure!' or 'Here is your lesson'."
         )
@@ -240,7 +240,7 @@ class LLMManager:
                             f"Main Topic: {topic}\nLesson Title: {sub_topic}\nLesson Brief:\n{lesson_brief}",
                             (
                                 "You are a master educator. Explain the provided lesson brief within the broader context of the main topic. "
-                                "Keep the explanation concise (approximately 200 words), high-impact, and clear. "
+                                "Keep the explanation concise (approximately 150 words), high-impact, and clear. "
                                 "Use Markdown for formatting (bold, code blocks, lists). "
                                 "Do not use conversational filler like 'Sure!' or 'Here is your lesson'."
                             ),
