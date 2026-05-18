@@ -195,6 +195,7 @@ class LLMManager:
                 on_permission_request=PermissionHandler.approve_all
             ) as session:
                 session.on(self._on_session_event)
+                covered_titles: list[str] = []
                 for i, step in enumerate(syllabus):
                     step_number = start_step + i
                     sub_topic = step.title
@@ -204,11 +205,18 @@ class LLMManager:
                         progress_callback(i, total_steps, sub_topic, lesson_type)
 
                     if lesson_type == "quiz":
+                        prior_context = (
+                            "\n\nPreviously covered lessons (quiz must draw from these):\n"
+                            + "\n".join(f"{j + 1}. {t}" for j, t in enumerate(covered_titles))
+                            if covered_titles
+                            else ""
+                        )
                         raw_quiz = await self._send_with_session(
                             session,
-                            f"Main Topic: {topic}\nLesson Title: {sub_topic}\nLesson Brief:\n{lesson_brief}",
+                            f"Main Topic: {topic}\nLesson Title: {sub_topic}\nLesson Brief:\n{lesson_brief}{prior_context}",
                             (
-                                "You are a master educator. Create a challenging micro-quiz for the provided lesson brief within the broader main topic. "
+                                "You are a master educator. Create a challenging micro-quiz that tests understanding of the previously covered lessons listed in the prompt. "
+                                "Do not quiz on material that has not yet been covered. "
                                 "The quiz should test understanding, not just recall. "
                                 "Format: 1 Question followed by 3-4 multiple choice options. "
                                 "At the very end, write the correct answer and a one-sentence explanation of why it is correct, prefixed with 'ANSWER: '. "
@@ -234,6 +242,7 @@ class LLMManager:
                         artifacts.append(artifact)
                         if artifact_callback:
                             artifact_callback(artifact)
+                        covered_titles.append(sub_topic)
                     else:
                         lesson_text = await self._send_with_session(
                             session,
@@ -257,6 +266,7 @@ class LLMManager:
                         artifacts.append(artifact)
                         if artifact_callback:
                             artifact_callback(artifact)
+                        covered_titles.append(sub_topic)
 
                     if progress_callback:
                         progress_callback(i + 1, total_steps, sub_topic, lesson_type)
