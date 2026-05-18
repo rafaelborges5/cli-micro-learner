@@ -392,6 +392,14 @@ class REPLShell:
                 return
             app.exit(result=selected)
 
+        _original_handle_enter = radio_list._handle_enter
+
+        def _radio_mouse_submit() -> None:
+            _original_handle_enter()
+            accept_selection()
+
+        radio_list._handle_enter = _radio_mouse_submit
+
         dialog = Dialog(
             title="Resume Topic",
             body=HSplit(
