@@ -22,7 +22,7 @@ def choose_lesson_type(step_number: int, total_lessons: int) -> str:
 class LLMManager:
     """Session-based LLM client; reuses a single Copilot session across a batch to reduce cold-start latency."""
 
-    def __init__(self, model: str = "gpt-4.1"):
+    def __init__(self, model: str = "gpt-5.3-codex"):
         self.model = model
         self._session_request = None
 
@@ -103,13 +103,13 @@ class LLMManager:
         """Generates a micro-lesson for a specific sub-topic."""
         system_prompt = (
             "You are a master educator. Explain the provided sub-topic within the broader context of the main topic. "
-            "Keep the explanation concise (approximately 150 words), high-impact, and clear. "
+            "Keep the explanation concise (approximately 200 words), high-impact, and clear. "
             "Use Markdown for formatting (bold, code blocks, lists). "
             "Do not use conversational filler like 'Sure!' or 'Here is your lesson'."
         )
-        
+
         prompt = f"Main Topic: {topic}\nSub-Topic: {sub_topic}"
-        
+
         return await self.get_response(prompt, system_prompt)
 
     async def generate_quiz(self, topic: str, sub_topic: str) -> str:
@@ -158,7 +158,7 @@ class LLMManager:
         """Answers a student's ad-hoc question using the current lesson as context."""
         system_prompt = (
             "You are a patient tutor. The student has a question about the lesson they just read. "
-            "Answer concisely (2-4 sentences). Stay focused on the lesson context. "
+            "Answer thoroughly (6-8 sentences). Stay focused on the lesson context. "
             "Use Markdown for formatting."
         )
         prompt = (
@@ -240,7 +240,7 @@ class LLMManager:
                             f"Main Topic: {topic}\nLesson Title: {sub_topic}\nLesson Brief:\n{lesson_brief}",
                             (
                                 "You are a master educator. Explain the provided lesson brief within the broader context of the main topic. "
-                                "Keep the explanation concise (approximately 150 words), high-impact, and clear. "
+                                "Keep the explanation concise (approximately 200 words), high-impact, and clear. "
                                 "Use Markdown for formatting (bold, code blocks, lists). "
                                 "Do not use conversational filler like 'Sure!' or 'Here is your lesson'."
                             ),
