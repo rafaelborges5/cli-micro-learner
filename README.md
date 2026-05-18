@@ -16,6 +16,32 @@ Instead of random facts, `micro-learner` generates a 15-step progressive syllabu
 - **Auto-export to Markdown** — completed lessons are appended to `~/.micro_learner/notes/<topic>.md` in Obsidian-compatible format
 - **Multi-topic management** — start new topics without losing prior progress; resume any saved syllabus from an interactive search picker
 
+## Prerequisites
+
+This tool uses **GitHub Copilot** as its LLM backend via the [GitHub Copilot SDK](https://github.com/github/copilot-sdk). Before installing, you need:
+
+1. An active **GitHub Copilot subscription** (Individual, Business, or Enterprise).
+2. The **GitHub CLI** installed and authenticated:
+
+```bash
+# Install the GitHub CLI (https://cli.github.com)
+gh auth login
+```
+
+3. The **GitHub Copilot CLI extension**:
+
+```bash
+gh extension install github/gh-copilot
+```
+
+Verify everything is working:
+
+```bash
+gh copilot --version
+```
+
+If that command succeeds, `micro-learner` will be able to reach Copilot automatically — no further auth setup is needed.
+
 ## Installation
 
 Requires Python 3.10 or later.
